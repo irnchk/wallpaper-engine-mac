@@ -1,0 +1,20 @@
+.DS_Store
+.build/
+DerivedData/
+
+# Local-only notes and workshop fixtures.
+review-findings.md
+wallpaper-engine-mac-plan.md
+TestLibrary/
+
+# Keep the GitHub sample bundle intentionally small.
+SampleWallpapers/*
+!SampleWallpapers/LIGHT_DARK_PAIRS.md
+!SampleWallpapers/ambient-test-loop/
+!SampleWallpapers/ambient-test-loop/**
+!SampleWallpapers/mixkit-abstract-macro-fluid-background/
+!SampleWallpapers/mixkit-abstract-macro-fluid-background/**
+!SampleWallpapers/city-pop-a-long-vacation-upscaled-4k/
+!SampleWallpapers/city-pop-a-long-vacation-upscaled-4k/**
+!SampleWallpapers/city-pop-dark-4k-aesthetic-city-night/
+!SampleWallpapers/city-pop-dark-4k-aesthetic-city-night/**
