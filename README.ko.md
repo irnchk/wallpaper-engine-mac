@@ -4,7 +4,7 @@
 
 # WallpaperEngineMac
 
-**로컬에 보유한 Wallpaper Engine 스타일 동영상 배경화면을 재생하는 네이티브 macOS 메뉴바 앱.**
+**내가 가진 Wallpaper Engine 스타일 동영상 배경화면을 macOS에서 재생하는 메뉴바 앱.**
 
 ![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
@@ -19,35 +19,35 @@
   <img src="SampleWallpapers/city-pop-a-long-vacation-upscaled-4k/preview.jpg" alt="City Pop 라이브 배경화면 샘플" width="860" />
 </p>
 
-> 이미 보유한 배경화면 에셋을 데스크톱 아이콘 뒤에서 재생합니다 — 하드웨어 디코딩, 배터리 친화적, 기본 음소거.
+> 이미 가지고 있는 영상 배경화면을 데스크톱 아이콘 뒤에서 틀어 줍니다. 하드웨어 디코딩으로 가볍게 돌아가고, 배터리를 아끼며, 소리는 기본적으로 꺼져 있습니다.
 
 ---
 
-## ✨ 주요 기능
+## ✨ 한눈에 보기
 
-- **Wallpaper Engine 구조 임포트** — `Steam/steamapps/workshop/content/431960/` 같은 워크샵 폴더, `project.json`이 들어 있는 개별 배경화면 폴더, 단일 `project.json`, 또는 직접 `.mp4` / `.m4v` / `.mov` 파일을 가져옵니다.
-- **가벼운 라이브러리 창** — `project.json` 메타데이터를 파싱하고, 지원/미지원 프로젝트를 다운샘플된 미리보기 썸네일과 함께 목록으로 보여줍니다.
-- **데스크톱 아이콘 뒤에서 재생** — 연결된 모든 디스플레이에서 `AVQueuePlayer` + `AVPlayerLooper`(VideoToolbox 하드웨어 디코딩)로 재생합니다.
-- **자동 Light/Dark 전환** — Light/주간과 Dark/야간 배경화면을 따로 지정하고, macOS 외관 모드나 간단한 주야간 스케줄에 따라 자동 전환합니다.
-- **배터리 우선 전력 관리** — 화면 잠금, 디스플레이 슬립, 저전력 모드, 배터리 사용(옵션), 사용자 일시정지, 또는 배경화면 창이 가려질 때 자동으로 멈춥니다.
-- **디코더 자원 해제** — 장시간 일시정지 후 디코더 자원을 해제하고, 재개 시 재생을 다시 생성합니다.
-- **기본 음소거** — 클릭 한 번으로 토글 가능.
-- `Resources/`에 생성된 `AppIcon.icns` 포함.
+- **Wallpaper Engine 폴더를 그대로 가져오기** — `Steam/steamapps/workshop/content/431960/` 같은 워크샵 폴더는 물론, `project.json`이 든 배경화면 폴더, `project.json` 파일 하나, 또는 `.mp4` / `.m4v` / `.mov` 영상 파일을 바로 불러올 수 있습니다.
+- **가벼운 라이브러리 창** — `project.json`을 읽어 제목·종류를 정리하고, 미리보기 썸네일과 함께 재생 가능 여부까지 한눈에 보여 줍니다.
+- **아이콘 뒤에서 재생** — 연결된 모든 디스플레이에서 `AVQueuePlayer` + `AVPlayerLooper`로 끊김 없이 반복 재생합니다. 디코딩은 VideoToolbox가 하드웨어로 처리합니다.
+- **라이트/다크 자동 전환** — 밝을 때와 어두울 때 쓸 배경화면을 따로 정해 두면, macOS 외관 모드나 시간대(주간/야간)에 맞춰 알아서 바꿔 줍니다.
+- **배터리를 먼저 생각하는 절전** — 화면이 잠기거나, 디스플레이가 꺼지거나, 저전력 모드일 때, 배터리로 돌아갈 때(선택), 직접 멈췄을 때, 다른 창에 완전히 가려졌을 때 재생을 자동으로 멈춥니다.
+- **오래 멈추면 디코더까지 정리** — 일정 시간 정지 상태가 이어지면 디코더 자원을 풀어 메모리를 돌려주고, 다시 켜질 때 재생을 새로 띄웁니다.
+- **기본 음소거** — 필요하면 클릭 한 번으로 켜고 끌 수 있습니다.
+- `Resources/`에 만들어 둔 `AppIcon.icns` 포함.
 
 ---
 
-## 🌗 자동 Light / Dark 전환
+## 🌗 라이트 / 다크 자동 전환
 
-한 쌍을 지정해두면 시스템 외관 모드나 주야간 스케줄을 따라 전환됩니다.
+한 쌍만 정해 두면 시스템 외관 모드나 시간대를 따라 알아서 바뀝니다.
 
 <table>
   <tr>
-    <th align="center">☀️ Light / 주간</th>
-    <th align="center">🌙 Dark / 야간</th>
+    <th align="center">☀️ 라이트 / 주간</th>
+    <th align="center">🌙 다크 / 야간</th>
   </tr>
   <tr>
-    <td><img src="SampleWallpapers/city-pop-a-long-vacation-upscaled-4k/preview.jpg" alt="Light/주간 배경화면" width="420" /></td>
-    <td><img src="SampleWallpapers/city-pop-dark-4k-aesthetic-city-night/preview.jpg" alt="Dark/야간 배경화면" width="420" /></td>
+    <td><img src="SampleWallpapers/city-pop-a-long-vacation-upscaled-4k/preview.jpg" alt="라이트/주간 배경화면" width="420" /></td>
+    <td><img src="SampleWallpapers/city-pop-dark-4k-aesthetic-city-night/preview.jpg" alt="다크/야간 배경화면" width="420" /></td>
   </tr>
   <tr>
     <td align="center"><code>city-pop-a-long-vacation-upscaled-4k</code></td>
@@ -55,17 +55,17 @@
   </tr>
 </table>
 
-메뉴바 앱에서 **`Automation`** 메뉴를 엽니다:
+메뉴바 앱에서 **`Automation`** 메뉴를 열고:
 
-- **`Set Current as Light/Day`**, **`Set Current as Dark/Night`**를 사용하거나, 라이브러리 창의 해당 버튼을 사용합니다.
-- **`Follow System Appearance`**를 선택하면 macOS Light/Dark 모드를 따라갑니다.
-- **`Follow Day/Night Schedule`**를 선택하면 내장된 06:00 / 18:00 경계에서 전환됩니다.
+- 지금 적용된 배경화면을 **`Set Current as Light/Day`** 또는 **`Set Current as Dark/Night`**로 지정합니다(라이브러리 창의 버튼으로도 가능).
+- **`Follow System Appearance`** — macOS 라이트/다크 모드를 그대로 따라갑니다.
+- **`Follow Day/Night Schedule`** — 06:00과 18:00을 기준으로 주간·야간을 바꿉니다.
 
 ---
 
-## 🖼️ 동봉된 샘플 배경화면
+## 🖼️ 함께 들어 있는 샘플 배경화면
 
-빠른 로컬 테스트를 위해 Wallpaper Engine 스타일 동영상 프로젝트 형태로 구성되어 있어 바로 임포트할 수 있습니다.
+바로 테스트해 볼 수 있도록 Wallpaper Engine 형식의 동영상 프로젝트로 만들어 두었습니다. 폴더째 가져오면 됩니다.
 
 <table>
   <tr>
@@ -81,7 +81,7 @@
     <td width="50%"><img src="SampleWallpapers/city-pop-dark-4k-aesthetic-city-night/preview.jpg" alt="시티팝 다크" width="100%" /></td>
   </tr>
   <tr>
-    <td align="center"><b>City Pop — A Long Vacation</b> ☀️<br/><code>city-pop-a-long-vacation-upscaled-4k</code><br/><sub>업스케일 4K · 60 fps</sub></td>
+    <td align="center"><b>City Pop — A Long Vacation</b> ☀️<br/><code>city-pop-a-long-vacation-upscaled-4k</code><br/><sub>4K 업스케일 · 60 fps</sub></td>
     <td align="center"><b>Aesthetic City at Night</b> 🌙<br/><code>city-pop-dark-4k-aesthetic-city-night</code><br/><sub>4K · 30 fps</sub></td>
   </tr>
 </table>
@@ -94,7 +94,7 @@
 swift run WallpaperEngineMac
 ```
 
-앱이 메뉴바에 나타납니다. **`Import Folder or Video`**로 로컬 에셋을 추가한 뒤, 메뉴나 라이브러리 창에서 지원되는 동영상 배경화면을 적용합니다.
+실행하면 메뉴바에 앱이 뜹니다. **`Import Folder or Video`**로 로컬 파일을 추가한 다음, 메뉴나 라이브러리 창에서 원하는 영상 배경화면을 적용하세요.
 
 ## 🧪 테스트
 
@@ -110,24 +110,24 @@ swift run WallpaperEngineSmokeTests
 WallpaperEngineMac/
 ├── Sources/
 │   ├── WallpaperEngineCore/   # project.json 파싱, 라이브러리 스캔
-│   ├── WallpaperEngineMac/    # 메뉴바 앱, 렌더러, 전력 관리자
+│   ├── WallpaperEngineMac/    # 메뉴바 앱, 렌더러, 전력 관리
 │   └── WallpaperEngineSmokeTests/
-├── SampleWallpapers/          # 임포트 가능한 샘플 동영상 프로젝트
+├── SampleWallpapers/          # 가져올 수 있는 샘플 동영상 프로젝트
 ├── Resources/                 # 앱 아이콘
 └── Scripts/build-app.sh       # .app 번들 생성
 ```
 
 ---
 
-## 🎬 크레딧 & 라이선스
+## 🎬 출처 & 라이선스
 
-각 샘플 폴더에는 전체 출처가 담긴 `SOURCE.md`가 포함되어 있습니다. 요약:
+샘플 폴더마다 자세한 출처를 담은 `SOURCE.md`가 들어 있습니다. 요약하면 다음과 같습니다.
 
 | 샘플 | 출처 | 라이선스 / 비고 |
 | --- | --- | --- |
-| Ambient Test Loop | Pixabay 4K 앰비언트 루프 | 로컬 테스트용 픽스처 |
+| Ambient Test Loop | Pixabay 4K 앰비언트 루프 | 로컬 테스트용 |
 | Abstract Macro Fluid | [Mixkit](https://mixkit.co/free-stock-video/abstract-macro-fluid-background-101740/) | [Mixkit Free License](https://mixkit.co/license/#videoFree) |
-| City Pop — A Long Vacation | [DesktopHut](https://www.desktophut.com/City-Pop-A-Long-Vacation-Live-Wallpaper) | 개인 로컬 사용; 업스케일됨 |
+| City Pop — A Long Vacation | [DesktopHut](https://www.desktophut.com/City-Pop-A-Long-Vacation-Live-Wallpaper) | 개인 로컬 사용 · 업스케일본 |
 | Aesthetic City at Night | [MotionBgs](https://motionbgs.com/aesthetic-city-at-the-night) | 권리는 원저작자에게 있음 |
 
-이 앱은 Wallpaper Engine 워크샵 콘텐츠를 **다운로드하거나 재배포하지 않습니다.** 사용자가 이미 적법하게 확보하여 로컬로 임포트한 에셋만 재생합니다. 동봉된 샘플 배경화면은 로컬 테스트 용도로만 포함되어 있으며, 재사용 전 각 출처의 약관을 준수하세요.
+이 앱은 Wallpaper Engine 워크샵 콘텐츠를 **내려받거나 재배포하지 않습니다.** 사용자가 이미 정당하게 확보해 로컬로 가져온 파일만 재생합니다. 함께 넣어 둔 샘플 배경화면은 로컬 테스트용이며, 다시 사용하기 전에 각 출처의 약관을 꼭 확인하세요.
