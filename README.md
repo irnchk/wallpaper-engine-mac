@@ -11,6 +11,8 @@
 ![UI](https://img.shields.io/badge/menu%20bar-AppKit%20%2B%20AVFoundation-lightgrey)
 ![Status](https://img.shields.io/badge/status-MVP-success)
 
+**English** · [한국어](README.ko.md)
+
 </div>
 
 <p align="center">
