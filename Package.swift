@@ -33,7 +33,8 @@ let package = Package(
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("ImageIO"),
                 .linkedFramework("IOKit"),
-                .linkedFramework("QuartzCore")
+                .linkedFramework("QuartzCore"),
+                .linkedFramework("WebKit")
             ]
         ),
         .executableTarget(

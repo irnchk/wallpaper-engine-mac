@@ -1,5 +1,7 @@
 .DS_Store
 .build/
+Dist/
+Live2DObjects/
 DerivedData/
 
 # Local-only notes and workshop fixtures.

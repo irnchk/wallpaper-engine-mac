@@ -72,6 +72,82 @@ public struct WallpaperProperty: Decodable, Equatable, Sendable {
     }
 }
 
+public struct WallpaperInteractiveFrame: Codable, Equatable, Sendable {
+    public let x: Double
+    public let y: Double
+    public let width: Double
+    public let height: Double
+
+    public init(x: Double, y: Double, width: Double, height: Double) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+    }
+}
+
+public struct WallpaperInteractiveObject: Decodable, Equatable, Sendable {
+    public let id: String
+    public let type: String
+    public let title: String?
+    public let fileName: String?
+    public let frame: WallpaperInteractiveFrame
+    public let opacity: Double
+    public let cornerRadius: Double
+    public let draggable: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case type
+        case title
+        case fileName = "file"
+        case frame
+        case opacity
+        case cornerRadius
+        case draggable
+    }
+
+    public var normalizedType: String {
+        type.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    public var isImageLike: Bool {
+        ["image", "albumart", "album-art", "album_cover", "album-cover", "cover", "custom-image"].contains(normalizedType)
+    }
+
+    public var isVideoLike: Bool {
+        ["video", "movie", "loop", "animated-video"].contains(normalizedType)
+    }
+
+    public var isLive2DLike: Bool {
+        ["live2d", "live2d-web", "cubism", "cubism-web"].contains(normalizedType)
+    }
+
+    public func fileURL(relativeTo rootURL: URL) -> URL? {
+        guard let fileName = fileName?.nilIfBlank else {
+            return nil
+        }
+        return rootURL.appendingPathComponent(fileName).standardizedFileURL
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(String.self, forKey: .id)?.nilIfBlank ?? UUID().uuidString
+        self.type = try container.decodeIfPresent(String.self, forKey: .type)?.nilIfBlank ?? "image"
+        self.title = try container.decodeIfPresent(String.self, forKey: .title)?.nilIfBlank
+        self.fileName = try container.decodeIfPresent(String.self, forKey: .fileName)?.nilIfBlank
+        self.frame = try container.decodeIfPresent(WallpaperInteractiveFrame.self, forKey: .frame) ?? WallpaperInteractiveFrame(
+            x: 0.65,
+            y: 0.25,
+            width: 0.18,
+            height: 0.18
+        )
+        self.opacity = try container.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
+        self.cornerRadius = try container.decodeIfPresent(Double.self, forKey: .cornerRadius) ?? 0
+        self.draggable = try container.decodeIfPresent(Bool.self, forKey: .draggable) ?? true
+    }
+}
+
 public struct WallpaperProject: Identifiable, Equatable, Sendable {
     public let id: String
     public let rootURL: URL
@@ -82,6 +158,7 @@ public struct WallpaperProject: Identifiable, Equatable, Sendable {
     public let entryURL: URL?
     public let previewURL: URL?
     public let properties: [String: WallpaperProperty]
+    public let interactiveObjects: [WallpaperInteractiveObject]
     public let supportStatus: WallpaperSupportStatus
 
     public var isPlayableNow: Bool {
@@ -109,6 +186,7 @@ public struct WallpaperProject: Identifiable, Equatable, Sendable {
             entryURL: entryURL?.standardizedFileURL,
             previewURL: previewURL?.standardizedFileURL,
             properties: project.general?.properties ?? [:],
+            interactiveObjects: project.interactive?.objects ?? [],
             supportStatus: supportStatus
         )
     }
@@ -125,6 +203,7 @@ public struct WallpaperProject: Identifiable, Equatable, Sendable {
             entryURL: standardizedURL,
             previewURL: nil,
             properties: [:],
+            interactiveObjects: [],
             supportStatus: supportStatusFor(type: .video, entryURL: standardizedURL)
         )
     }
@@ -171,10 +250,15 @@ private struct ProjectJSON: Decodable {
     let title: String?
     let preview: String?
     let general: GeneralJSON?
+    let interactive: InteractiveJSON?
 }
 
 private struct GeneralJSON: Decodable {
     let properties: [String: WallpaperProperty]?
+}
+
+private struct InteractiveJSON: Decodable {
+    let objects: [WallpaperInteractiveObject]?
 }
 
 private extension String {

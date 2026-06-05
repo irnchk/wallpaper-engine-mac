@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import QuartzCore
+import WallpaperEngineCore
 
 @MainActor
 protocol WallpaperRenderer: AnyObject {
@@ -11,6 +12,8 @@ protocol WallpaperRenderer: AnyObject {
     func teardown()
     func setMuted(_ muted: Bool)
     func setReleaseResourcesWhilePaused(_ enabled: Bool)
+    func setInteractiveObjectsEnabled(_ enabled: Bool)
+    func resetInteractiveObjectFrames()
 }
 
 @MainActor
@@ -18,6 +21,7 @@ final class VideoWallpaperRenderer: NSObject, WallpaperRenderer {
     let view: NSView
 
     private let playerLayer: AVPlayerLayer
+    private let overlayView: InteractiveOverlayView
     private let fileURL: URL
     private let pauseTeardownDelay: TimeInterval
 
@@ -29,14 +33,39 @@ final class VideoWallpaperRenderer: NSObject, WallpaperRenderer {
     private var resumeTime = CMTime.zero
 
     init(
+        project: WallpaperProject,
         fileURL: URL,
         muted: Bool,
         releaseResourcesWhilePaused: Bool,
+        interactiveObjectsEnabled: Bool,
+        frameProvider: @escaping (String) -> WallpaperInteractiveFrame?,
+        onFrameChanged: @escaping (String, WallpaperInteractiveFrame) -> Void,
         pauseTeardownDelay: TimeInterval = 60
     ) {
+        let containerView = NSView(frame: .zero)
         let playerView = PlayerView(frame: .zero)
-        self.view = playerView
+        let overlayView = InteractiveOverlayView(frame: .zero)
+
+        containerView.wantsLayer = true
+        containerView.layer?.backgroundColor = NSColor.black.cgColor
+        playerView.translatesAutoresizingMaskIntoConstraints = false
+        overlayView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(playerView)
+        containerView.addSubview(overlayView)
+        NSLayoutConstraint.activate([
+            playerView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            playerView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            playerView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            playerView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+            overlayView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            overlayView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            overlayView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            overlayView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+        ])
+
+        self.view = containerView
         self.playerLayer = playerView.playerLayer
+        self.overlayView = overlayView
         self.fileURL = fileURL
         self.muted = muted
         self.releaseResourcesWhilePaused = releaseResourcesWhilePaused
@@ -45,6 +74,13 @@ final class VideoWallpaperRenderer: NSObject, WallpaperRenderer {
         super.init()
 
         playerLayer.videoGravity = .resizeAspectFill
+        overlayView.objectInteractionEnabled = interactiveObjectsEnabled
+        overlayView.configure(
+            objects: project.interactiveObjects,
+            projectRootURL: project.rootURL,
+            frameProvider: frameProvider,
+            onFrameChanged: onFrameChanged
+        )
         rebuildPlayer()
     }
 
@@ -55,21 +91,25 @@ final class VideoWallpaperRenderer: NSObject, WallpaperRenderer {
             rebuildPlayer()
         }
         player?.play()
+        overlayView.start()
     }
 
     func pause() {
         guard let player else {
+            overlayView.pause()
             return
         }
 
         resumeTime = player.currentTime()
         player.pause()
+        overlayView.pause()
         scheduleLongPauseTeardown()
     }
 
     func teardown() {
         pauseTeardownTimer?.invalidate()
         pauseTeardownTimer = nil
+        overlayView.teardown()
         releasePlaybackResources()
         view.removeFromSuperview()
     }
@@ -87,6 +127,14 @@ final class VideoWallpaperRenderer: NSObject, WallpaperRenderer {
             pauseTeardownTimer?.invalidate()
             pauseTeardownTimer = nil
         }
+    }
+
+    func setInteractiveObjectsEnabled(_ enabled: Bool) {
+        overlayView.objectInteractionEnabled = enabled
+    }
+
+    func resetInteractiveObjectFrames() {
+        overlayView.resetObjectFrames()
     }
 
     @objc

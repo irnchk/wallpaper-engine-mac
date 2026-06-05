@@ -100,6 +100,23 @@ final class RenderCoordinator {
         }
     }
 
+    func updateInteractiveObjects() {
+        for host in hosts.values {
+            host.updateObjectInteractionEnabled()
+        }
+    }
+
+    func resetInteractiveObjectFramesForActiveProject() {
+        guard let activeProject else {
+            return
+        }
+
+        preferences.clearInteractiveObjectFrameOverrides(projectRootPath: activeProject.rootURL.path)
+        for host in hosts.values where host.projectRootPath == activeProject.rootURL.path {
+            host.renderer?.resetInteractiveObjectFrames()
+        }
+    }
+
     @objc
     private func screenParametersChanged() {
         rebuildScreens()
@@ -142,6 +159,7 @@ final class RenderCoordinator {
                     hosts[displayID] = try DesktopWallpaperHost(
                         screen: screen,
                         project: activeProject,
+                        preferences: preferences,
                         muted: preferences.isMuted,
                         releaseResourcesWhilePaused: preferences.releaseDecoderOnLongPause,
                         onOcclusionChanged: { [weak self] in
@@ -178,7 +196,9 @@ private final class DesktopWallpaperHost {
     let window: DesktopWallpaperWindow
     var renderer: WallpaperRenderer?
     private let onOcclusionChanged: () -> Void
+    private let preferences: AppPreferences
     private(set) var projectRootPath: String
+    private var projectHasInteractiveObjects: Bool
 
     var isOccludedVisible: Bool {
         window.occlusionState.contains(.visible)
@@ -187,6 +207,7 @@ private final class DesktopWallpaperHost {
     init(
         screen: NSScreen,
         project: WallpaperProject,
+        preferences: AppPreferences,
         muted: Bool,
         releaseResourcesWhilePaused: Bool,
         onOcclusionChanged: @escaping () -> Void
@@ -197,11 +218,21 @@ private final class DesktopWallpaperHost {
 
         self.window = DesktopWallpaperWindow(screen: screen)
         self.onOcclusionChanged = onOcclusionChanged
+        self.preferences = preferences
         self.projectRootPath = project.rootURL.path
+        self.projectHasInteractiveObjects = !project.interactiveObjects.isEmpty
         self.renderer = VideoWallpaperRenderer(
+            project: project,
             fileURL: entryURL,
             muted: muted,
-            releaseResourcesWhilePaused: releaseResourcesWhilePaused
+            releaseResourcesWhilePaused: releaseResourcesWhilePaused,
+            interactiveObjectsEnabled: objectInteractionEnabled(for: project),
+            frameProvider: { [preferences, projectRootPath = project.rootURL.path] objectID in
+                preferences.interactiveObjectFrameOverride(projectRootPath: projectRootPath, objectID: objectID)
+            },
+            onFrameChanged: { [preferences, projectRootPath = project.rootURL.path] objectID, frame in
+                preferences.setInteractiveObjectFrameOverride(frame, projectRootPath: projectRootPath, objectID: objectID)
+            }
         )
 
         installRendererView()
@@ -213,7 +244,7 @@ private final class DesktopWallpaperHost {
         )
 
         window.orderFrontRegardless()
-        window.orderBack(nil)
+        updateObjectInteractionEnabled()
     }
 
     func move(to screen: NSScreen) {
@@ -231,12 +262,22 @@ private final class DesktopWallpaperHost {
 
         renderer?.teardown()
         renderer = VideoWallpaperRenderer(
+            project: project,
             fileURL: entryURL,
             muted: muted,
-            releaseResourcesWhilePaused: releaseResourcesWhilePaused
+            releaseResourcesWhilePaused: releaseResourcesWhilePaused,
+            interactiveObjectsEnabled: objectInteractionEnabled(for: project),
+            frameProvider: { [preferences, projectRootPath = project.rootURL.path] objectID in
+                preferences.interactiveObjectFrameOverride(projectRootPath: projectRootPath, objectID: objectID)
+            },
+            onFrameChanged: { [preferences, projectRootPath = project.rootURL.path] objectID, frame in
+                preferences.setInteractiveObjectFrameOverride(frame, projectRootPath: projectRootPath, objectID: objectID)
+            }
         )
         projectRootPath = project.rootURL.path
+        projectHasInteractiveObjects = !project.interactiveObjects.isEmpty
         installRendererView()
+        updateObjectInteractionEnabled()
     }
 
     func updatePlayback(shouldPlayGlobally: Bool) {
@@ -251,8 +292,15 @@ private final class DesktopWallpaperHost {
         NotificationCenter.default.removeObserver(self)
         renderer?.teardown()
         renderer = nil
+        window.setObjectInteractionEnabled(false)
         window.orderOut(nil)
         window.close()
+    }
+
+    func updateObjectInteractionEnabled() {
+        let enabled = preferences.interactiveObjectsEnabled && projectHasInteractiveObjects
+        window.setObjectInteractionEnabled(enabled)
+        renderer?.setInteractiveObjectsEnabled(enabled)
     }
 
     @objc
@@ -275,6 +323,10 @@ private final class DesktopWallpaperHost {
             rendererView.topAnchor.constraint(equalTo: contentView.topAnchor),
             rendererView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         ])
+    }
+
+    private func objectInteractionEnabled(for project: WallpaperProject) -> Bool {
+        preferences.interactiveObjectsEnabled && !project.interactiveObjects.isEmpty
     }
 }
 

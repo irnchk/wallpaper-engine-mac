@@ -1,4 +1,5 @@
 import Foundation
+import WallpaperEngineCore
 
 enum WallpaperAutoSwitchMode: String, CaseIterable {
     case off
@@ -31,6 +32,8 @@ final class AppPreferences {
         static let pauseOnBattery = "pauseOnBattery"
         static let pauseOnLowPowerMode = "pauseOnLowPowerMode"
         static let releaseDecoderOnLongPause = "releaseDecoderOnLongPause"
+        static let interactiveObjectsEnabled = "interactiveObjectsEnabled"
+        static let interactiveObjectFrameOverrides = "interactiveObjectFrameOverrides"
     }
 
     private let defaults: UserDefaults
@@ -145,6 +148,49 @@ final class AppPreferences {
         }
     }
 
+    var interactiveObjectsEnabled: Bool {
+        get {
+            defaults.bool(forKey: Key.interactiveObjectsEnabled)
+        }
+        set {
+            defaults.set(newValue, forKey: Key.interactiveObjectsEnabled)
+        }
+    }
+
+    func interactiveObjectFrameOverride(
+        projectRootPath: String,
+        objectID: String
+    ) -> WallpaperInteractiveFrame? {
+        interactiveObjectFrameOverrides.projects[projectRootPath]?[objectID]
+    }
+
+    func setInteractiveObjectFrameOverride(
+        _ frame: WallpaperInteractiveFrame,
+        projectRootPath: String,
+        objectID: String
+    ) {
+        var store = interactiveObjectFrameOverrides
+        var projectFrames = store.projects[projectRootPath] ?? [:]
+        projectFrames[objectID] = frame
+        store.projects[projectRootPath] = projectFrames
+        interactiveObjectFrameOverrides = store
+    }
+
+    func clearInteractiveObjectFrameOverrides(projectRootPath: String) {
+        var store = interactiveObjectFrameOverrides
+        store.projects[projectRootPath] = nil
+        interactiveObjectFrameOverrides = store
+    }
+
+    func clearInteractiveObjectFrameOverride(projectRootPath: String, objectID: String) {
+        var store = interactiveObjectFrameOverrides
+        store.projects[projectRootPath]?[objectID] = nil
+        if store.projects[projectRootPath]?.isEmpty == true {
+            store.projects[projectRootPath] = nil
+        }
+        interactiveObjectFrameOverrides = store
+    }
+
     private func registerDefaults() {
         defaults.register(defaults: [
             Key.libraryRoots: [],
@@ -154,7 +200,29 @@ final class AppPreferences {
             Key.muted: true,
             Key.pauseOnBattery: true,
             Key.pauseOnLowPowerMode: true,
-            Key.releaseDecoderOnLongPause: true
+            Key.releaseDecoderOnLongPause: true,
+            Key.interactiveObjectsEnabled: false
         ])
     }
+
+    private var interactiveObjectFrameOverrides: InteractiveObjectFrameOverrideStore {
+        get {
+            guard let data = defaults.data(forKey: Key.interactiveObjectFrameOverrides),
+                  let store = try? JSONDecoder().decode(InteractiveObjectFrameOverrideStore.self, from: data)
+            else {
+                return InteractiveObjectFrameOverrideStore()
+            }
+            return store
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue) else {
+                return
+            }
+            defaults.set(data, forKey: Key.interactiveObjectFrameOverrides)
+        }
+    }
+}
+
+private struct InteractiveObjectFrameOverrideStore: Codable {
+    var projects: [String: [String: WallpaperInteractiveFrame]] = [:]
 }

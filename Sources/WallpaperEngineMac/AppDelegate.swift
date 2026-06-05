@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 import WallpaperEngineCore
 
 @MainActor
@@ -34,6 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        installEditingMainMenu()
+
         renderCoordinator = RenderCoordinator(preferences: preferences)
         renderCoordinator.onStatusChanged = { [weak self] in
             self?.rebuildMenu()
@@ -125,6 +128,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let automationItem = NSMenuItem(title: "Automation", action: nil, keyEquivalent: "")
         automationItem.submenu = automationMenu()
         menu.addItem(automationItem)
+
+        let interactiveObjectsItem = NSMenuItem(title: "Interactive Objects", action: nil, keyEquivalent: "")
+        interactiveObjectsItem.submenu = interactiveObjectsMenu()
+        menu.addItem(interactiveObjectsItem)
+
+        let steamWorkshopItem = NSMenuItem(title: "Steam Workshop", action: nil, keyEquivalent: "")
+        steamWorkshopItem.submenu = steamWorkshopMenu()
+        menu.addItem(steamWorkshopItem)
         menu.addItem(.separator())
 
         menu.addItem(toggleItem(
@@ -196,6 +207,122 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem(title: "Clear Light/Day Slot", action: #selector(clearLightWallpaper), keyEquivalent: "", target: self))
         menu.addItem(NSMenuItem(title: "Clear Dark/Night Slot", action: #selector(clearDarkWallpaper), keyEquivalent: "", target: self))
+
+        return menu
+    }
+
+    private func steamWorkshopMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(
+            title: "Open Wallpaper Engine Workshop",
+            action: #selector(openSteamWorkshop),
+            keyEquivalent: "",
+            target: self
+        ))
+        menu.addItem(NSMenuItem(
+            title: "Open Workshop Item...",
+            action: #selector(openSteamWorkshopItem),
+            keyEquivalent: "",
+            target: self
+        ))
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(
+            title: "Import Local Workshop Folder",
+            action: #selector(importLocalSteamWorkshopFolder),
+            keyEquivalent: "",
+            target: self
+        ))
+        menu.addItem(NSMenuItem(
+            title: "Download Item with SteamCMD...",
+            action: #selector(downloadSteamWorkshopItemWithSteamCMD),
+            keyEquivalent: "",
+            target: self
+        ))
+        return menu
+    }
+
+    private func interactiveObjectsMenu() -> NSMenu {
+        let menu = NSMenu()
+        let project = currentProject
+        let objectCount = project?.interactiveObjects.count ?? 0
+
+        let statusItem = NSMenuItem(title: "Objects: \(objectCount)", action: nil, keyEquivalent: "")
+        statusItem.isEnabled = false
+        menu.addItem(statusItem)
+
+        let toggle = toggleItem(
+            title: "Edit / Interact With Objects",
+            action: #selector(toggleInteractiveObjects),
+            state: preferences.interactiveObjectsEnabled
+        )
+        toggle.isEnabled = objectCount > 0
+        menu.addItem(toggle)
+
+        menu.addItem(.separator())
+
+        let addImageItem = NSMenuItem(
+            title: "Add Image Object to Current Wallpaper...",
+            action: #selector(addInteractiveImageObject),
+            keyEquivalent: "",
+            target: self
+        )
+        addImageItem.isEnabled = project?.projectURL != nil
+        menu.addItem(addImageItem)
+
+        let addVideoItem = NSMenuItem(
+            title: "Add Video Object to Current Wallpaper...",
+            action: #selector(addInteractiveVideoObject),
+            keyEquivalent: "",
+            target: self
+        )
+        addVideoItem.isEnabled = project?.projectURL != nil
+        menu.addItem(addVideoItem)
+
+        let addLive2DItem = NSMenuItem(
+            title: "Add Live2D Web Object...",
+            action: #selector(addInteractiveLive2DObject),
+            keyEquivalent: "",
+            target: self
+        )
+        addLive2DItem.isEnabled = project?.projectURL != nil
+        menu.addItem(addLive2DItem)
+
+        let removeItem = NSMenuItem(title: "Remove Object", action: nil, keyEquivalent: "")
+        removeItem.submenu = removeInteractiveObjectMenu(for: project)
+        removeItem.isEnabled = objectCount > 0
+        menu.addItem(removeItem)
+
+        let resetItem = NSMenuItem(
+            title: "Reset Object Positions",
+            action: #selector(resetInteractiveObjectPositions),
+            keyEquivalent: "",
+            target: self
+        )
+        resetItem.isEnabled = objectCount > 0
+        menu.addItem(resetItem)
+
+        return menu
+    }
+
+    private func removeInteractiveObjectMenu(for project: WallpaperProject?) -> NSMenu {
+        let menu = NSMenu()
+        guard let project, !project.interactiveObjects.isEmpty else {
+            let emptyItem = NSMenuItem(title: "No objects", action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
+            menu.addItem(emptyItem)
+            return menu
+        }
+
+        for object in project.interactiveObjects {
+            let item = NSMenuItem(
+                title: object.title ?? object.id,
+                action: #selector(removeInteractiveObjectFromMenu(_:)),
+                keyEquivalent: "",
+                target: self
+            )
+            item.representedObject = object.id
+            menu.addItem(item)
+        }
 
         return menu
     }
@@ -373,6 +500,230 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc
+    private func toggleInteractiveObjects() {
+        if !preferences.interactiveObjectsEnabled,
+           currentProject?.interactiveObjects.isEmpty != false {
+            presentMessage(
+                title: "No Interactive Objects",
+                message: "Add an image object to the current wallpaper first."
+            )
+            return
+        }
+
+        preferences.interactiveObjectsEnabled.toggle()
+        renderCoordinator.updateInteractiveObjects()
+        rebuildMenu()
+    }
+
+    @objc
+    private func addInteractiveImageObject() {
+        guard let project = currentProject else {
+            return
+        }
+
+        NSApp.activate(ignoringOtherApps: true)
+
+        let panel = NSOpenPanel()
+        panel.title = "Add Image Object"
+        panel.prompt = "Add"
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.image]
+
+        guard panel.runModal() == .OK,
+              let imageURL = panel.url
+        else {
+            return
+        }
+
+        do {
+            try InteractiveProjectEditor.addImageObject(imageURL: imageURL, to: project)
+            preferences.interactiveObjectsEnabled = true
+            reloadLibrary()
+            if let updatedProject = self.project(rootPath: project.rootURL.path) {
+                apply(updatedProject, resetUserPause: false)
+            }
+            renderCoordinator.updateInteractiveObjects()
+            rebuildMenu()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    @objc
+    private func addInteractiveVideoObject() {
+        guard let project = currentProject else {
+            return
+        }
+
+        NSApp.activate(ignoringOtherApps: true)
+
+        let panel = NSOpenPanel()
+        panel.title = "Add Video Object"
+        panel.prompt = "Add"
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.mpeg4Movie, .quickTimeMovie, .movie]
+
+        guard panel.runModal() == .OK,
+              let videoURL = panel.url
+        else {
+            return
+        }
+
+        do {
+            try InteractiveProjectEditor.addVideoObject(videoURL: videoURL, to: project)
+            preferences.interactiveObjectsEnabled = true
+            reloadAndReapply(projectRootPath: project.rootURL.path)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    @objc
+    private func addInteractiveLive2DObject() {
+        guard let project = currentProject else {
+            return
+        }
+
+        NSApp.activate(ignoringOtherApps: true)
+
+        let panel = NSOpenPanel()
+        panel.title = "Add Live2D Web Object"
+        panel.message = "Choose the HTML entry file for a local Live2D Web/Cubism bundle."
+        panel.prompt = "Add"
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.html]
+
+        guard panel.runModal() == .OK,
+              let entryURL = panel.url
+        else {
+            return
+        }
+
+        do {
+            try InteractiveProjectEditor.addLive2DWebObject(entryHTMLURL: entryURL, to: project)
+            preferences.interactiveObjectsEnabled = true
+            reloadAndReapply(projectRootPath: project.rootURL.path)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    @objc
+    private func removeInteractiveObjectFromMenu(_ sender: NSMenuItem) {
+        guard let project = currentProject,
+              let objectID = sender.representedObject as? String
+        else {
+            return
+        }
+
+        do {
+            try InteractiveProjectEditor.removeObject(objectID: objectID, from: project)
+            preferences.clearInteractiveObjectFrameOverride(projectRootPath: project.rootURL.path, objectID: objectID)
+            reloadLibrary()
+            if let updatedProject = self.project(rootPath: project.rootURL.path) {
+                preferences.interactiveObjectsEnabled = !updatedProject.interactiveObjects.isEmpty
+                apply(updatedProject, resetUserPause: false)
+            }
+            renderCoordinator.updateInteractiveObjects()
+            rebuildMenu()
+        } catch {
+            presentError(error)
+        }
+    }
+
+    @objc
+    private func resetInteractiveObjectPositions() {
+        renderCoordinator.resetInteractiveObjectFramesForActiveProject()
+        rebuildMenu()
+    }
+
+    @objc
+    private func openSteamWorkshop() {
+        SteamWorkshopSupport.openWorkshop()
+    }
+
+    @objc
+    private func openSteamWorkshopItem() {
+        guard let input = promptForText(
+            title: "Open Workshop Item",
+            message: "Paste a Steam Workshop URL or item ID.",
+            placeholder: "https://steamcommunity.com/sharedfiles/filedetails/?id=..."
+        ) else {
+            return
+        }
+
+        do {
+            try SteamWorkshopSupport.openWorkshopItem(idOrURL: input)
+        } catch {
+            presentError(error)
+        }
+    }
+
+    @objc
+    private func importLocalSteamWorkshopFolder() {
+        if let workshopURL = SteamWorkshopSupport.existingWorkshopFolderURL() {
+            preferences.libraryRoots.appendUnique(contentsOf: [workshopURL])
+            reloadLibrary()
+            rebuildMenu()
+            return
+        }
+
+        NSApp.activate(ignoringOtherApps: true)
+
+        let panel = NSOpenPanel()
+        panel.title = "Import Wallpaper Engine Workshop Folder"
+        panel.message = "Choose the Steam workshop/content/431960 folder or any folder containing Wallpaper Engine project.json files."
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK,
+              let url = panel.url
+        else {
+            return
+        }
+
+        preferences.libraryRoots.appendUnique(contentsOf: [url.standardizedFileURL])
+        reloadLibrary()
+        rebuildMenu()
+    }
+
+    @objc
+    private func downloadSteamWorkshopItemWithSteamCMD() {
+        guard let input = promptForText(
+            title: "Download Workshop Item",
+            message: "Paste a Steam Workshop URL or item ID. This uses SteamCMD anonymously and will not bypass Steam access rules.",
+            placeholder: "published file ID"
+        ) else {
+            return
+        }
+
+        SteamWorkshopSupport.downloadItemWithSteamCMD(idOrURL: input) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else {
+                    return
+                }
+
+                switch result {
+                case let .success(itemURL):
+                    self.preferences.libraryRoots.appendUnique(contentsOf: [itemURL.standardizedFileURL])
+                    self.reloadLibrary()
+                    self.rebuildMenu()
+                    self.presentMessage(title: "Workshop Item Imported", message: itemURL.path)
+                case let .failure(error):
+                    self.presentError(error)
+                }
+            }
+        }
+    }
+
+    @objc
     private func clearWallpaper() {
         preferences.autoSwitchMode = .off
         renderCoordinator.clear()
@@ -502,6 +853,98 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func presentError(_ error: Error) {
         NSApp.presentError(error)
+    }
+
+    private func presentMessage(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .informational
+        alert.runModal()
+    }
+
+    private func promptForText(title: String, message: String, placeholder: String) -> String? {
+        NSApp.activate(ignoringOtherApps: true)
+
+        let input = PromptTextField(frame: NSRect(x: 0, y: 0, width: 420, height: 24))
+        input.placeholderString = placeholder
+
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.accessoryView = input
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        alert.window.initialFirstResponder = input
+
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else {
+            return nil
+        }
+
+        let value = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
+    private func reloadAndReapply(projectRootPath: String) {
+        reloadLibrary()
+        if let updatedProject = self.project(rootPath: projectRootPath) {
+            apply(updatedProject, resetUserPause: false)
+        }
+        renderCoordinator.updateInteractiveObjects()
+        rebuildMenu()
+    }
+
+    private func installEditingMainMenu() {
+        let mainMenu = NSMenu()
+
+        let appMenuItem = NSMenuItem()
+        let appMenu = NSMenu(title: "WallpaperEngineMac")
+        appMenu.addItem(NSMenuItem(title: "Quit WallpaperEngineMac", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+
+        let editMenuItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
+        editMenu.addItem(NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
+        editMenu.addItem(NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
+        editMenu.addItem(NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
+
+        NSApp.mainMenu = mainMenu
+    }
+}
+
+private final class PromptTextField: NSTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.type == .keyDown,
+              event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command),
+              let key = event.charactersIgnoringModifiers?.lowercased()
+        else {
+            return super.performKeyEquivalent(with: event)
+        }
+
+        let action: Selector?
+        switch key {
+        case "x":
+            action = #selector(NSText.cut(_:))
+        case "c":
+            action = #selector(NSText.copy(_:))
+        case "v":
+            action = #selector(NSText.paste(_:))
+        case "a":
+            action = #selector(NSText.selectAll(_:))
+        default:
+            action = nil
+        }
+
+        guard let action else {
+            return super.performKeyEquivalent(with: event)
+        }
+
+        return NSApp.sendAction(action, to: nil, from: self)
     }
 }
 

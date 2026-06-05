@@ -29,6 +29,7 @@
 - **Lightweight library window** — parses `project.json` metadata and shows downsampled preview thumbnails for supported and unsupported projects.
 - **Plays behind your desktop icons** on every connected display via `AVQueuePlayer` + `AVPlayerLooper` (VideoToolbox hardware decoding).
 - **Automatic Light/Dark wallpapers** — assign separate Light/Day and Dark/Night wallpapers and switch by macOS appearance or a simple day/night schedule.
+- **Interactive image objects** — add album covers or custom images on top of a wallpaper, then enable edit mode to click and drag them into place.
 - **Battery-first power management** — pauses when the screen locks, displays sleep, Low Power Mode is on, on battery (optional), the user pauses, or the wallpaper window is occluded.
 - **Frees decoder resources** after a long pause and recreates playback on resume.
 - **Muted by default**, with a one-click toggle.
@@ -60,6 +61,54 @@ In the menu bar app, open **`Automation`**:
 - Use **`Set Current as Light/Day`** and **`Set Current as Dark/Night`** (or the matching buttons in the library window).
 - Pick **`Follow System Appearance`** to mirror macOS Light/Dark Mode.
 - Pick **`Follow Day/Night Schedule`** to switch at the built-in 06:00 and 18:00 boundaries.
+
+---
+
+## 🧩 Interactive objects
+
+Use **`Interactive Objects`** from the menu bar app to place media objects over the active wallpaper:
+
+- **`Add Image Object to Current Wallpaper...`** copies the selected image into the active project and adds it to `project.json`.
+- **`Add Video Object to Current Wallpaper...`** adds a muted looping `.mp4`, `.m4v`, or `.mov` object above the wallpaper.
+- **`Add Live2D Web Object...`** copies the folder containing a local Live2D/Cubism Web HTML entry file and renders it as an interactive WebKit object. The Live2D runtime is not bundled; use assets you are licensed to run.
+- **`Edit / Interact With Objects`** raises the wallpaper into an edit layer so objects can be clicked and dragged. Turn it off to return the wallpaper behind desktop icons.
+- **`Remove Object`** removes an object from `project.json` and deletes the app-copied asset when it lives under `InteractiveObjects/`.
+- **`Reset Object Positions`** clears saved drag positions for the current wallpaper.
+
+Projects can also define objects directly:
+
+```json
+{
+  "interactive": {
+    "objects": [
+      {
+        "id": "album-cover",
+        "type": "albumArt",
+        "title": "Album Cover",
+        "file": "InteractiveObjects/cover.jpg",
+        "frame": { "x": 0.68, "y": 0.24, "width": 0.18, "height": 0.18 },
+        "cornerRadius": 12,
+        "draggable": true
+      }
+    ]
+  }
+}
+```
+
+Frame values are normalized to the screen: `x` and `y` start at the top-left, and `width` / `height` are fractions of the display.
+
+---
+
+## 🧰 Steam Workshop helper
+
+The app does not bypass Steam or redistribute Workshop files. The **`Steam Workshop`** menu provides helper actions around official Steam paths:
+
+- **`Open Wallpaper Engine Workshop`** opens the public Workshop page for Wallpaper Engine.
+- **`Open Workshop Item...`** accepts a Workshop URL or published file ID and opens it through Steam.
+- **`Import Local Workshop Folder`** imports the local `steamapps/workshop/content/431960` folder when Steam has already installed subscribed items.
+- **`Download Item with SteamCMD...`** tries an anonymous SteamCMD download into the app support folder, then imports the item if Steam permits the download.
+
+Some Workshop items require the user to own Wallpaper Engine or be logged into Steam, so SteamCMD may fail by design.
 
 ---
 

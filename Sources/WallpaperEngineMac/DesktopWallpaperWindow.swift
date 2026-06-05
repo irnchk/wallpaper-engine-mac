@@ -1,6 +1,10 @@
 import AppKit
 
 final class DesktopWallpaperWindow: NSWindow {
+    private let passiveLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)))
+    private let interactiveLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
+    private var objectInteractionEnabled = false
+
     init(screen: NSScreen) {
         super.init(
             contentRect: screen.frame,
@@ -15,8 +19,9 @@ final class DesktopWallpaperWindow: NSWindow {
         isOpaque = true
         hasShadow = false
         ignoresMouseEvents = true
+        acceptsMouseMovedEvents = false
         canHide = false
-        level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)))
+        level = passiveLevel
         collectionBehavior = [
             .canJoinAllSpaces,
             .stationary,
@@ -31,14 +36,28 @@ final class DesktopWallpaperWindow: NSWindow {
     }
 
     override var canBecomeKey: Bool {
-        false
+        objectInteractionEnabled
     }
 
     override var canBecomeMain: Bool {
-        false
+        objectInteractionEnabled
     }
 
     func move(to screen: NSScreen) {
         setFrame(screen.frame, display: true)
+    }
+
+    func setObjectInteractionEnabled(_ enabled: Bool) {
+        objectInteractionEnabled = enabled
+        ignoresMouseEvents = !enabled
+        acceptsMouseMovedEvents = enabled
+        level = enabled ? interactiveLevel : passiveLevel
+
+        if enabled {
+            makeKeyAndOrderFront(nil)
+        } else {
+            resignKey()
+            orderBack(nil)
+        }
     }
 }

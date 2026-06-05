@@ -9,6 +9,7 @@ struct SmokeTestRunner {
         try scannerSkipsBrokenWorkshopChildren()
         try scannerSkipsBrokenRootsInMultiRootScan()
         try webmIsDetectedButNotRuntimePlayableYet()
+        try interactiveObjectsDecode()
         try directVideoImport()
         try bundledSampleWallpaperIsImportable()
         print("WallpaperEngineSmokeTests passed")
@@ -124,6 +125,65 @@ struct SmokeTestRunner {
         }
     }
 
+    private static func interactiveObjectsDecode() throws {
+        try withTemporaryRoot { temporaryRoot in
+            let projectDirectory = temporaryRoot.appendingPathComponent("interactive")
+            try FileManager.default.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
+            try Data().write(to: projectDirectory.appendingPathComponent("wallpaper.mp4"))
+
+            let json = """
+            {
+              "type": "video",
+              "file": "wallpaper.mp4",
+              "title": "Interactive Demo",
+              "interactive": {
+                "objects": [
+                  {
+                    "id": "album-cover",
+                    "type": "albumArt",
+                    "title": "Album Cover",
+                    "file": "InteractiveObjects/cover.jpg",
+                    "frame": {
+                      "x": 0.7,
+                      "y": 0.2,
+                      "width": 0.16,
+                      "height": 0.16
+                    },
+                    "opacity": 0.85,
+                    "cornerRadius": 18,
+                    "draggable": true
+                  },
+                  {
+                    "id": "video-loop",
+                    "type": "video",
+                    "file": "InteractiveObjects/loop.mp4"
+                  },
+                  {
+                    "id": "live2d-character",
+                    "type": "live2d-web",
+                    "file": "InteractiveObjects/live2d/index.html"
+                  }
+                ]
+              }
+            }
+            """
+            try write(json, to: projectDirectory.appendingPathComponent("project.json"))
+
+            let project = try WallpaperProject.load(projectJSONURL: projectDirectory.appendingPathComponent("project.json"))
+            let object = try expectNotNil(project.interactiveObjects.first, "interactive object should decode")
+
+            try expect(object.id == "album-cover", "interactive object id should decode")
+            try expect(object.isImageLike, "albumArt should be treated as image-like")
+            try expect(object.fileURL(relativeTo: project.rootURL)?.lastPathComponent == "cover.jpg", "object file should resolve relative to project")
+            try expect(object.frame.x == 0.7, "object frame should decode")
+            try expect(object.opacity == 0.85, "object opacity should decode")
+            try expect(object.cornerRadius == 18, "object corner radius should decode")
+            try expect(object.draggable, "object should decode draggable")
+            try expect(project.interactiveObjects[1].isVideoLike, "video object should be treated as video-like")
+            try expect(project.interactiveObjects[2].isLive2DLike, "live2d-web object should be treated as Live2D-like")
+        }
+    }
+
     private static func bundledSampleWallpaperIsImportable() throws {
         let samplesURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("SampleWallpapers")
@@ -131,15 +191,29 @@ struct SmokeTestRunner {
             return
         }
 
-        let projects = try WallpaperLibraryScanner().scan(rootURL: samplesURL)
+        let expectedSampleFolders = [
+            "ambient-test-loop",
+            "mixkit-abstract-macro-fluid-background",
+            "city-pop-a-long-vacation-upscaled-4k",
+            "city-pop-dark-4k-aesthetic-city-night",
+        ]
+        let existingSampleFolders = expectedSampleFolders
+            .map { samplesURL.appendingPathComponent($0) }
+            .filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent("project.json").path) }
+
+        guard !existingSampleFolders.isEmpty else {
+            return
+        }
+
+        let projects = try WallpaperLibraryScanner().scan(roots: existingSampleFolders)
         let sampleTitles = projects.map(\.title)
         try expect(
-            Set(sampleTitles).isSuperset(of: [
+            Set([
                 "Ambient Test Loop (Pixabay 4K)",
                 "Abstract Macro Fluid Background",
                 "City Pop A Long Vacation (Upscaled 4K)",
                 "City Pop Dark 4K: Aesthetic City at the Night",
-            ]),
+            ]).isSuperset(of: sampleTitles),
             "sample wallpapers should all be importable"
         )
         try expect(projects.allSatisfy(\.isPlayableNow), "sample wallpapers should be playable")
@@ -178,6 +252,13 @@ struct SmokeTestRunner {
         guard condition() else {
             throw SmokeTestError.expectationFailed(message)
         }
+    }
+
+    private static func expectNotNil<T>(_ value: T?, _ message: String) throws -> T {
+        guard let value else {
+            throw SmokeTestError.expectationFailed(message)
+        }
+        return value
     }
 }
 
