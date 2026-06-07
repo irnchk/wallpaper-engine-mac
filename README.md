@@ -209,4 +209,6 @@ Each sample folder ships a `SOURCE.md` with full attribution. Summary:
 | City Pop — A Long Vacation | [DesktopHut](https://www.desktophut.com/City-Pop-A-Long-Vacation-Live-Wallpaper) | Personal local use; upscaled |
 | Aesthetic City at Night | [MotionBgs](https://motionbgs.com/aesthetic-city-at-the-night) | Rights remain with original creators |
 
-This app does **not** download or redistribute Wallpaper Engine workshop content. It only plays assets the user has already obtained and imported locally. Sample wallpapers are bundled for local testing only — please respect each source's terms before reusing them.
+The app source code is available under the [MIT License](LICENSE). Bundled sample wallpapers are not relicensed by this project; they are included for local testing only under each source's terms.
+
+This app does **not** download or redistribute Wallpaper Engine workshop content. It only plays assets the user has already obtained and imported locally. Please respect each source's terms before reusing bundled sample assets.

@@ -209,4 +209,6 @@ WallpaperEngineMac/
 | City Pop — A Long Vacation | [DesktopHut](https://www.desktophut.com/City-Pop-A-Long-Vacation-Live-Wallpaper) | 개인 로컬 사용 · 업스케일본 |
 | Aesthetic City at Night | [MotionBgs](https://motionbgs.com/aesthetic-city-at-the-night) | 권리는 원저작자에게 있음 |
 
-이 앱은 Wallpaper Engine 워크샵 콘텐츠를 **내려받거나 재배포하지 않습니다.** 사용자가 이미 정당하게 확보해 로컬로 가져온 파일만 재생합니다. 함께 넣어 둔 샘플 배경화면은 로컬 테스트용이며, 다시 사용하기 전에 각 출처의 약관을 꼭 확인하세요.
+앱 소스 코드는 [MIT License](LICENSE)로 공개합니다. 함께 넣어 둔 샘플 배경화면은 이 프로젝트가 다시 라이선스하지 않으며, 각 출처의 조건에 따라 로컬 테스트용으로만 포함했습니다.
+
+이 앱은 Wallpaper Engine 워크샵 콘텐츠를 **내려받거나 재배포하지 않습니다.** 사용자가 이미 정당하게 확보해 로컬로 가져온 파일만 재생합니다. 번들 샘플 에셋을 다시 사용하기 전에 각 출처의 약관을 꼭 확인하세요.
