@@ -29,6 +29,7 @@ final class AppPreferences {
         static let dayStartMinute = "dayStartMinute"
         static let nightStartMinute = "nightStartMinute"
         static let muted = "muted"
+        static let audioResponsiveEnabled = "audioResponsiveEnabled"
         static let pauseOnBattery = "pauseOnBattery"
         static let pauseOnLowPowerMode = "pauseOnLowPowerMode"
         static let releaseDecoderOnLongPause = "releaseDecoderOnLongPause"
@@ -121,6 +122,15 @@ final class AppPreferences {
         }
     }
 
+    var audioResponsiveEnabled: Bool {
+        get {
+            defaults.bool(forKey: Key.audioResponsiveEnabled)
+        }
+        set {
+            defaults.set(newValue, forKey: Key.audioResponsiveEnabled)
+        }
+    }
+
     var pauseOnBattery: Bool {
         get {
             defaults.bool(forKey: Key.pauseOnBattery)
@@ -198,6 +208,7 @@ final class AppPreferences {
             Key.dayStartMinute: 6 * 60,
             Key.nightStartMinute: 18 * 60,
             Key.muted: true,
+            Key.audioResponsiveEnabled: false,
             Key.pauseOnBattery: true,
             Key.pauseOnLowPowerMode: true,
             Key.releaseDecoderOnLongPause: true,

@@ -28,8 +28,10 @@
 - **Imports Wallpaper Engine layouts** — a workshop folder such as `Steam/steamapps/workshop/content/431960/`, an individual wallpaper folder containing `project.json`, a lone `project.json`, or a direct `.mp4` / `.m4v` / `.mov` file.
 - **Lightweight library window** — parses `project.json` metadata and shows downsampled preview thumbnails for supported and unsupported projects.
 - **Plays behind your desktop icons** on every connected display via `AVQueuePlayer` + `AVPlayerLooper` (VideoToolbox hardware decoding).
+- **GIF scene fallback playback** — plays Workshop GIF template scenes that provide an animated `preview.gif`.
 - **Automatic Light/Dark wallpapers** — assign separate Light/Day and Dark/Night wallpapers and switch by macOS appearance or a simple day/night schedule.
 - **Interactive image objects** — add album covers or custom images on top of a wallpaper, then enable edit mode to click and drag them into place.
+- **Audio responsive Workshop support** — detects Workshop metadata such as audio reactive / visualizer / spectrum and automatically enables the reactive overlay; local `web` wallpapers are rendered through WebKit.
 - **Battery-first power management** — pauses when the screen locks, displays sleep, Low Power Mode is on, on battery (optional), the user pauses, or the wallpaper window is occluded.
 - **Frees decoder resources** after a long pause and recreates playback on resume.
 - **Muted by default**, with a one-click toggle.
@@ -70,10 +72,13 @@ Use **`Interactive Objects`** from the menu bar app to place media objects over 
 
 - **`Add Image Object to Current Wallpaper...`** copies the selected image into the active project and adds it to `project.json`.
 - **`Add Video Object to Current Wallpaper...`** adds a muted looping `.mp4`, `.m4v`, or `.mov` object above the wallpaper.
-- **`Add Live2D Web Object...`** copies the folder containing a local Live2D/Cubism Web HTML entry file and renders it as an interactive WebKit object. The Live2D runtime is not bundled; use assets you are licensed to run.
-- **`Edit / Interact With Objects`** raises the wallpaper into an edit layer so objects can be clicked and dragged. Turn it off to return the wallpaper behind desktop icons.
+- **`Add Live2D Web Object...`** copies the folder containing a local Live2D/Cubism Web HTML entry file and renders it as an interactive WebKit object. The copied bundle is loaded through a local-only app scheme, network resources are blocked, and the page/canvas background is forced transparent. The Live2D runtime is not bundled; use local runtime files and assets you are licensed to run.
+- **`Edit / Interact With Objects`** raises the wallpaper into an edit layer so objects can be clicked and dragged. Press `Esc` or click outside the objects to return the wallpaper behind desktop icons.
 - **`Remove Object`** removes an object from `project.json` and deletes the app-copied asset when it lives under `InteractiveObjects/`.
-- **`Reset Object Positions`** clears saved drag positions for the current wallpaper.
+
+Use the main menu's **`Audio Responsive`** toggle to show the reactive overlay. Imported Workshop items whose metadata says they are audio reactive, music responsive, visualizers, spectrums, or similar are marked **`Audio Responsive`** in the library and enable the overlay automatically when applied. For compatible scene packages, the app extracts the real background texture from `scene.pkg` and recreates recognized creator-configured audio bar styles, including color, bar count, spacing, lower/upper bounds, circle angles, and bottom/top/side/center/stereo/circle placement from **Simple Audio Bars**. Local `web` wallpapers are rendered through WebKit and receive a lightweight `wallpaperRegisterAudioListener` bridge based on the same audio level. macOS may ask for Screen Recording permission because system audio capture is provided by ScreenCaptureKit.
+
+If macOS keeps denying audio capture after you granted permission, quit the app, remove or reset the stale **Screen & System Audio Recording** entry for `local.wallpaper-engine-mac`, reopen the exact `.app` bundle, and grant it again. Locally rebuilt ad-hoc signed apps can get a new code hash, so old TCC grants may not match the fresh build.
 
 Projects can also define objects directly:
 
@@ -105,10 +110,12 @@ The app does not bypass Steam or redistribute Workshop files. The **`Steam Works
 
 - **`Open Wallpaper Engine Workshop`** opens the public Workshop page for Wallpaper Engine.
 - **`Open Workshop Item...`** accepts a Workshop URL or published file ID and opens it through Steam.
-- **`Import Local Workshop Folder`** imports the local `steamapps/workshop/content/431960` folder when Steam has already installed subscribed items.
-- **`Download Item with SteamCMD...`** tries an anonymous SteamCMD download into the app support folder, then imports the item if Steam permits the download.
+- **`Import Local Workshop Folder`** imports the local `steamapps/workshop/content/431960` folder when Steam has already installed subscribed items. This is the most reliable path: subscribe in Steam first, wait for the download, then import.
+- **`Download Item with SteamCMD Login...`** downloads with a Steam account that owns Wallpaper Engine. Credentials are passed to local SteamCMD for that one run and are not stored by the app.
 
-Some Workshop items require the user to own Wallpaper Engine or be logged into Steam, so SteamCMD may fail by design.
+Wallpaper Engine is a paid Steam app, so Workshop downloads normally require account login. Deleted, hidden, incompatible, age-gated, or region-restricted items can still fail even with account login.
+
+Audio responsive Workshop projects are supported through the app's overlay, scene package extraction, and web audio bridge. Native Wallpaper Engine scene packages (`.pkg`) are imported as playable entries, but they are not executed as a full engine yet; supported scene items use extracted textures, TEX conversion for common RGBA/DXT + LZ4 textures, animated GIF reconstruction for GIF template scenes, and recognized audio effects when available. Packages that use an unknown texture layout still show a scene-package placeholder instead of being handed to the video player. The package reader accepts `PKGV****` archives that keep the known entry-table layout, but dynamic text objects such as clocks and dates are intentionally ignored until full scene composition exists. Tiny square scene previews, such as Workshop icon GIFs, are ignored as playable fallbacks so they are not accidentally stretched across the desktop.
 
 ---
 

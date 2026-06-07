@@ -31,6 +31,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.onRevealRequested = { project in
             NSWorkspace.shared.activateFileViewerSelecting([project.rootURL])
         }
+        controller.onDeleteRequested = { [weak self] project in
+            self?.deleteWallpaper(project)
+        }
         return controller
     }()
 
@@ -150,6 +153,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             state: preferences.isMuted
         ))
         menu.addItem(toggleItem(
+            title: currentProject?.usesAudioResponsiveOverlay == true ? "Audio Responsive (Auto)" : "Audio Responsive",
+            action: #selector(toggleAudioResponsive),
+            state: preferences.audioResponsiveEnabled || currentProject?.usesAudioResponsiveOverlay == true
+        ))
+        menu.addItem(NSMenuItem(
+            title: "Open Screen & System Audio Settings",
+            action: #selector(openScreenAndSystemAudioSettings),
+            keyEquivalent: "",
+            target: self
+        ))
+        menu.addItem(toggleItem(
             title: "Pause on Battery",
             action: #selector(togglePauseOnBattery),
             state: preferences.pauseOnBattery
@@ -233,8 +247,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             target: self
         ))
         menu.addItem(NSMenuItem(
-            title: "Download Item with SteamCMD...",
-            action: #selector(downloadSteamWorkshopItemWithSteamCMD),
+            title: "Download Item with SteamCMD Login...",
+            action: #selector(downloadSteamWorkshopItemWithSteamCMDLogin),
             keyEquivalent: "",
             target: self
         ))
@@ -292,15 +306,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         removeItem.isEnabled = objectCount > 0
         menu.addItem(removeItem)
 
-        let resetItem = NSMenuItem(
-            title: "Reset Object Positions",
-            action: #selector(resetInteractiveObjectPositions),
-            keyEquivalent: "",
-            target: self
-        )
-        resetItem.isEnabled = objectCount > 0
-        menu.addItem(resetItem)
-
         return menu
     }
 
@@ -348,10 +353,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func projectMenuTitle(_ project: WallpaperProject) -> String {
+        let suffix = project.usesAudioResponsiveOverlay ? " [Audio Responsive]" : ""
         if project.isPlayableNow {
-            return project.title
+            return project.title + suffix
         }
-        return "\(project.title) (\(project.type.rawValue))"
+        return "\(project.title) (\(project.type.rawValue))" + suffix
     }
 
     private var currentProject: WallpaperProject? {
@@ -410,6 +416,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func reloadLibraryFromMenu() {
         reloadLibrary()
         rebuildMenu()
+    }
+
+    private func deleteWallpaper(_ project: WallpaperProject) {
+        let targetURL = deletionTargetURL(for: project)
+        guard confirmDelete(project: project, targetURL: targetURL) else {
+            return
+        }
+
+        do {
+            let isCurrentWallpaper = preferences.selectedWallpaperRootPath == project.rootURL.path
+            if isCurrentWallpaper {
+                preferences.selectedWallpaperRootPath = nil
+                renderCoordinator.clear()
+            }
+            if preferences.lightWallpaperRootPath == project.rootURL.path {
+                preferences.lightWallpaperRootPath = nil
+            }
+            if preferences.darkWallpaperRootPath == project.rootURL.path {
+                preferences.darkWallpaperRootPath = nil
+            }
+            preferences.clearInteractiveObjectFrameOverrides(projectRootPath: project.rootURL.path)
+
+            var trashedURL: NSURL?
+            try FileManager.default.trashItem(at: targetURL, resultingItemURL: &trashedURL)
+            removeDeletedProjectFromLibraryRoots(project: project, deletedURL: targetURL)
+            reloadLibrary()
+            rebuildMenu()
+        } catch {
+            presentError(error)
+        }
     }
 
     @objc
@@ -476,6 +512,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         preferences.isMuted.toggle()
         renderCoordinator.updateMuted()
         rebuildMenu()
+    }
+
+    @objc
+    private func toggleAudioResponsive() {
+        preferences.audioResponsiveEnabled.toggle()
+        renderCoordinator.updateAudioResponsive()
+        rebuildMenu()
+    }
+
+    @objc
+    private func openScreenAndSystemAudioSettings() {
+        let urls = [
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"),
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_SystemAudioCapture"),
+            URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension")
+        ].compactMap { $0 }
+
+        for url in urls where NSWorkspace.shared.open(url) {
+            return
+        }
     }
 
     @objc
@@ -695,16 +751,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc
-    private func downloadSteamWorkshopItemWithSteamCMD() {
+    private func downloadSteamWorkshopItemWithSteamCMDLogin() {
         guard let input = promptForText(
             title: "Download Workshop Item",
-            message: "Paste a Steam Workshop URL or item ID. This uses SteamCMD anonymously and will not bypass Steam access rules.",
+            message: "Paste a Steam Workshop URL or item ID. Use a Steam account that owns Wallpaper Engine. Credentials are passed to local SteamCMD only and are not saved.",
             placeholder: "published file ID"
-        ) else {
+        ), let account = promptForSteamCMDAccount() else {
             return
         }
 
-        SteamWorkshopSupport.downloadItemWithSteamCMD(idOrURL: input) { [weak self] result in
+        downloadSteamWorkshopItemWithSteamCMD(idOrURL: input, loginMode: .account(account))
+    }
+
+    private func downloadSteamWorkshopItemWithSteamCMD(
+        idOrURL: String,
+        loginMode: SteamWorkshopSupport.SteamCMDLoginMode
+    ) {
+        SteamWorkshopSupport.downloadItemWithSteamCMD(idOrURL: idOrURL, loginMode: loginMode) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else {
                     return
@@ -851,6 +914,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return url.standardizedFileURL
     }
 
+    private func deletionTargetURL(for project: WallpaperProject) -> URL {
+        if project.projectURL == nil, let entryURL = project.entryURL {
+            return entryURL.standardizedFileURL
+        }
+        return project.rootURL.standardizedFileURL
+    }
+
+    private func removeDeletedProjectFromLibraryRoots(project: WallpaperProject, deletedURL: URL) {
+        let removablePaths = Set([
+            deletedURL.standardizedFileURL.path,
+            project.projectURL?.standardizedFileURL.path,
+            project.entryURL?.standardizedFileURL.path,
+            project.rootURL.standardizedFileURL.path
+        ].compactMap { $0 })
+
+        preferences.libraryRoots = preferences.libraryRoots.filter {
+            !removablePaths.contains($0.standardizedFileURL.path)
+        }
+    }
+
+    private func confirmDelete(project: WallpaperProject, targetURL: URL) -> Bool {
+        NSApp.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.messageText = "Delete Wallpaper?"
+        alert.informativeText = """
+        \(project.title) will be moved to the Trash.
+
+        \(targetURL.path)
+        """
+        alert.alertStyle = .critical
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
     private func presentError(_ error: Error) {
         NSApp.presentError(error)
     }
@@ -886,6 +985,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return value.isEmpty ? nil : value
     }
 
+    private func promptForSteamCMDAccount() -> SteamWorkshopSupport.SteamCMDAccount? {
+        NSApp.activate(ignoringOtherApps: true)
+
+        let usernameField = PromptTextField(frame: NSRect(x: 0, y: 0, width: 420, height: 24))
+        usernameField.placeholderString = "Steam username"
+
+        let passwordField = PromptSecureTextField(frame: NSRect(x: 0, y: 0, width: 420, height: 24))
+        passwordField.placeholderString = "Steam password"
+
+        let steamGuardField = PromptTextField(frame: NSRect(x: 0, y: 0, width: 420, height: 24))
+        steamGuardField.placeholderString = "Steam Guard code (optional)"
+
+        let stack = NSStackView(views: [
+            label("Username"),
+            usernameField,
+            label("Password"),
+            passwordField,
+            label("Steam Guard"),
+            steamGuardField
+        ])
+        stack.orientation = .vertical
+        stack.spacing = 6
+        stack.alignment = .leading
+        stack.setFrameSize(NSSize(width: 420, height: 156))
+
+        for view in stack.views {
+            view.widthAnchor.constraint(equalToConstant: 420).isActive = true
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "SteamCMD Login"
+        alert.informativeText = "Use an account that owns Wallpaper Engine. Credentials are passed to local SteamCMD for this download only and are not stored."
+        alert.accessoryView = stack
+        alert.addButton(withTitle: "Download")
+        alert.addButton(withTitle: "Cancel")
+        alert.window.initialFirstResponder = usernameField
+
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else {
+            return nil
+        }
+
+        let username = usernameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let password = passwordField.stringValue
+        let steamGuardCode = steamGuardField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !username.isEmpty, !password.isEmpty else {
+            return nil
+        }
+
+        return SteamWorkshopSupport.SteamCMDAccount(
+            username: username,
+            password: password,
+            steamGuardCode: steamGuardCode.isEmpty ? nil : steamGuardCode
+        )
+    }
+
+    private func label(_ text: String) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.textColor = .secondaryLabelColor
+        return label
+    }
+
     private func reloadAndReapply(projectRootPath: String) {
         reloadLibrary()
         if let updatedProject = self.project(rootPath: projectRootPath) {
@@ -918,6 +1080,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 private final class PromptTextField: NSTextField {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.type == .keyDown,
+              event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command),
+              let key = event.charactersIgnoringModifiers?.lowercased()
+        else {
+            return super.performKeyEquivalent(with: event)
+        }
+
+        let action: Selector?
+        switch key {
+        case "x":
+            action = #selector(NSText.cut(_:))
+        case "c":
+            action = #selector(NSText.copy(_:))
+        case "v":
+            action = #selector(NSText.paste(_:))
+        case "a":
+            action = #selector(NSText.selectAll(_:))
+        default:
+            action = nil
+        }
+
+        guard let action else {
+            return super.performKeyEquivalent(with: event)
+        }
+
+        return NSApp.sendAction(action, to: nil, from: self)
+    }
+}
+
+private final class PromptSecureTextField: NSSecureTextField {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.type == .keyDown,
               event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command),

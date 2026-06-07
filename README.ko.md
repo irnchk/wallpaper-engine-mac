@@ -28,8 +28,10 @@
 - **Wallpaper Engine 폴더를 그대로 가져오기** — `Steam/steamapps/workshop/content/431960/` 같은 워크샵 폴더는 물론, `project.json`이 든 배경화면 폴더, `project.json` 파일 하나, 또는 `.mp4` / `.m4v` / `.mov` 영상 파일을 바로 불러올 수 있습니다.
 - **가벼운 라이브러리 창** — `project.json`을 읽어 제목·종류를 정리하고, 미리보기 썸네일과 함께 재생 가능 여부까지 한눈에 보여 줍니다.
 - **아이콘 뒤에서 재생** — 연결된 모든 디스플레이에서 `AVQueuePlayer` + `AVPlayerLooper`로 끊김 없이 반복 재생합니다. 디코딩은 VideoToolbox가 하드웨어로 처리합니다.
+- **GIF scene fallback 재생** — 애니메이션 `preview.gif`를 제공하는 Workshop GIF 템플릿 scene을 재생합니다.
 - **라이트/다크 자동 전환** — 밝을 때와 어두울 때 쓸 배경화면을 따로 정해 두면, macOS 외관 모드나 시간대(주간/야간)에 맞춰 알아서 바꿔 줍니다.
 - **인터랙티브 이미지 오브젝트** — 배경화면 위에 앨범 커버나 원하는 이미지를 얹고, 편집 모드에서 클릭하거나 드래그해 위치를 맞출 수 있습니다.
+- **Audio Responsive Workshop 지원** — Workshop 메타데이터의 audio reactive / visualizer / spectrum 계열 배경화면을 감지해 반응형 오버레이를 자동으로 켜고, 로컬 `web` 배경화면은 WebKit으로 렌더링합니다.
 - **배터리를 먼저 생각하는 절전** — 화면이 잠기거나, 디스플레이가 꺼지거나, 저전력 모드일 때, 배터리로 돌아갈 때(선택), 직접 멈췄을 때, 다른 창에 완전히 가려졌을 때 재생을 자동으로 멈춥니다.
 - **오래 멈추면 디코더까지 정리** — 일정 시간 정지 상태가 이어지면 디코더 자원을 풀어 메모리를 돌려주고, 다시 켜질 때 재생을 새로 띄웁니다.
 - **기본 음소거** — 필요하면 클릭 한 번으로 켜고 끌 수 있습니다.
@@ -70,10 +72,13 @@
 
 - **`Add Image Object to Current Wallpaper...`** — 선택한 이미지를 현재 프로젝트 폴더로 복사하고 `project.json`에 오브젝트를 추가합니다.
 - **`Add Video Object to Current Wallpaper...`** — 음소거된 반복 재생 `.mp4`, `.m4v`, `.mov` 오브젝트를 배경화면 위에 추가합니다.
-- **`Add Live2D Web Object...`** — 로컬 Live2D/Cubism Web HTML 진입 파일이 들어 있는 폴더를 복사하고, WebKit 오브젝트로 렌더링합니다. Live2D 런타임은 앱에 포함하지 않으니 사용 권한이 있는 에셋을 넣어야 합니다.
-- **`Edit / Interact With Objects`** — 배경화면을 편집 레이어로 올려 오브젝트를 클릭하고 드래그할 수 있게 합니다. 끄면 다시 데스크톱 아이콘 뒤로 돌아갑니다.
+- **`Add Live2D Web Object...`** — 로컬 Live2D/Cubism Web HTML 진입 파일이 들어 있는 폴더를 복사하고, WebKit 오브젝트로 렌더링합니다. 복사된 번들은 앱의 로컬 전용 스킴으로 불러오며 외부 네트워크 리소스는 차단하고, 페이지와 캔버스 배경은 투명으로 강제합니다. Live2D 런타임은 앱에 포함하지 않으니 사용 권한이 있는 로컬 런타임 파일과 에셋을 넣어야 합니다.
+- **`Edit / Interact With Objects`** — 배경화면을 편집 레이어로 올려 오브젝트를 클릭하고 드래그할 수 있게 합니다. `Esc`를 누르거나 오브젝트 바깥을 클릭하면 다시 데스크톱 아이콘 뒤로 돌아갑니다.
 - **`Remove Object`** — `project.json`에서 오브젝트를 제거하고, 앱이 `InteractiveObjects/` 아래에 복사한 에셋이면 파일도 함께 삭제합니다.
-- **`Reset Object Positions`** — 현재 배경화면에서 저장된 드래그 위치를 초기화합니다.
+
+메인 메뉴의 **`Audio Responsive`** 토글을 켜면 반응형 오버레이가 표시됩니다. 가져온 Workshop 항목의 메타데이터가 audio reactive, music responsive, visualizer, spectrum 같은 오디오 반응형 배경화면임을 나타내면 라이브러리에 **`Audio Responsive`**로 표시되고, 적용할 때 오버레이가 자동으로 켜집니다. 호환되는 scene 패키지는 `scene.pkg`에서 실제 배경 텍스처를 꺼내고, 인식 가능한 제작자 오디오 바 스타일을 재현합니다. **Simple Audio Bars**의 색상, 막대 개수, 간격, 하한/상한 범위, 원형 각도, bottom/top/side/center/stereo/circle 위치 설정을 따라옵니다. 로컬 `web` 배경화면은 WebKit으로 렌더링하며 같은 오디오 레벨을 바탕으로 가벼운 `wallpaperRegisterAudioListener` 브리지를 제공합니다. 시스템 오디오 캡처가 ScreenCaptureKit 기반이라 macOS가 화면 기록 권한을 요청할 수 있습니다.
+
+권한을 허용했는데도 macOS가 계속 오디오 캡처를 거부하면 앱을 종료하고, `local.wallpaper-engine-mac`의 오래된 **화면 및 시스템 오디오 녹음** 항목을 제거하거나 reset한 뒤, 방금 만든 정확한 `.app` 번들을 다시 열어 권한을 새로 허용하세요. 로컬에서 ad-hoc 서명으로 다시 빌드한 앱은 코드 해시가 바뀔 수 있어 기존 TCC 권한과 맞지 않을 수 있습니다.
 
 프로젝트에서 직접 정의할 수도 있습니다.
 
@@ -105,10 +110,12 @@
 
 - **`Open Wallpaper Engine Workshop`** — Wallpaper Engine의 공개 창작마당 페이지를 엽니다.
 - **`Open Workshop Item...`** — Workshop URL이나 published file ID를 받아 Steam을 통해 해당 아이템 페이지를 엽니다.
-- **`Import Local Workshop Folder`** — Steam이 이미 설치해 둔 `steamapps/workshop/content/431960` 폴더를 가져옵니다.
-- **`Download Item with SteamCMD...`** — 익명 SteamCMD 다운로드를 앱 지원 폴더에 시도하고, Steam이 허용하면 해당 아이템을 가져옵니다.
+- **`Import Local Workshop Folder`** — Steam이 이미 설치해 둔 `steamapps/workshop/content/431960` 폴더를 가져옵니다. 가장 안정적인 경로는 Steam에서 먼저 구독하고 다운로드를 기다린 뒤 가져오는 방식입니다.
+- **`Download Item with SteamCMD Login...`** — Wallpaper Engine을 보유한 Steam 계정으로 다운로드합니다. 계정 정보는 해당 실행 동안 로컬 SteamCMD에만 전달되고 앱에 저장되지 않습니다.
 
-일부 창작마당 아이템은 Wallpaper Engine 소유나 Steam 로그인이 필요하므로 SteamCMD 다운로드가 정상적으로 실패할 수 있습니다.
+Wallpaper Engine은 유료 Steam 앱이어서 창작마당 다운로드는 보통 계정 로그인이 필요합니다. 삭제됨, 숨김, 비호환, 연령 제한, 지역 제한 아이템은 계정 로그인으로도 실패할 수 있습니다.
+
+오디오 반응형 Workshop 프로젝트는 앱의 오버레이, scene 패키지 추출, web 오디오 브리지로 지원합니다. Wallpaper Engine 네이티브 scene 패키지(`.pkg`)는 적용 가능한 항목으로 가져오지만, 아직 완전한 엔진으로 직접 실행하지는 않습니다. 지원되는 scene 항목은 추출한 텍스처, 일반적인 RGBA/DXT + LZ4 TEX 변환, GIF 템플릿 scene의 animated GIF 재구성, 인식 가능한 오디오 효과를 사용합니다. 아직 모르는 텍스처 구조를 쓰는 패키지는 비디오 플레이어에 잘못 넘기지 않고 scene-package placeholder를 표시합니다. 패키지 리더는 알려진 entry-table 구조를 유지하는 `PKGV****` 아카이브를 시도하지만, 시계나 날짜 같은 동적 텍스트 오브젝트는 완전한 scene 합성이 생기기 전까지 의도적으로 무시합니다. Workshop 아이콘 GIF처럼 작은 정사각형 scene preview는 배경 fallback으로 쓰지 않아, 데스크톱 전체에 잘못 확대되는 일을 막습니다.
 
 ---
 

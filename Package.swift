@@ -34,6 +34,7 @@ let package = Package(
                 .linkedFramework("ImageIO"),
                 .linkedFramework("IOKit"),
                 .linkedFramework("QuartzCore"),
+                .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("WebKit")
             ]
         ),

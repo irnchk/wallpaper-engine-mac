@@ -39,8 +39,24 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <string>13.0</string>
   <key>LSUIElement</key>
   <true/>
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>WallpaperEngineMac captures a tiny desktop stream so audio responsive wallpapers can react to system audio.</string>
+  <key>NSAudioCaptureUsageDescription</key>
+  <string>WallpaperEngineMac captures system audio levels to animate audio responsive wallpapers.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>WallpaperEngineMac does not record the microphone, but macOS may show this permission alongside system audio capture.</string>
 </dict>
 </plist>
 PLIST
+
+SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-}"
+if [[ -z "$SIGN_IDENTITY" ]]; then
+  SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | awk -F '"' '/Apple Development|Developer ID Application/ { print $2; exit }')"
+fi
+if [[ -z "$SIGN_IDENTITY" ]]; then
+  SIGN_IDENTITY="-"
+fi
+
+codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_DIR" >/dev/null
 
 echo "$APP_DIR"

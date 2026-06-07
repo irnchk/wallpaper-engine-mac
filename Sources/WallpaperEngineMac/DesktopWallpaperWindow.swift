@@ -5,6 +5,8 @@ final class DesktopWallpaperWindow: NSWindow {
     private let interactiveLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
     private var objectInteractionEnabled = false
 
+    var onCancelObjectInteraction: (() -> Void)?
+
     init(screen: NSScreen) {
         super.init(
             contentRect: screen.frame,
@@ -41,6 +43,24 @@ final class DesktopWallpaperWindow: NSWindow {
 
     override var canBecomeMain: Bool {
         objectInteractionEnabled
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if objectInteractionEnabled, event.keyCode == 53 {
+            onCancelObjectInteraction?()
+            return
+        }
+
+        super.keyDown(with: event)
+    }
+
+    override func cancelOperation(_ sender: Any?) {
+        if objectInteractionEnabled {
+            onCancelObjectInteraction?()
+            return
+        }
+
+        super.cancelOperation(sender)
     }
 
     func move(to screen: NSScreen) {

@@ -16,6 +16,7 @@ final class LibraryWindowController: NSWindowController, NSTableViewDataSource, 
     var onSetLightRequested: ((WallpaperProject) -> Void)?
     var onSetDarkRequested: ((WallpaperProject) -> Void)?
     var onRevealRequested: ((WallpaperProject) -> Void)?
+    var onDeleteRequested: ((WallpaperProject) -> Void)?
 
     private let tableView = NSTableView()
     private let thumbnailCache = ThumbnailCache(maxPixelSize: 96)
@@ -23,6 +24,7 @@ final class LibraryWindowController: NSWindowController, NSTableViewDataSource, 
     private let setLightButton = NSButton(title: "Set Light/Day", target: nil, action: nil)
     private let setDarkButton = NSButton(title: "Set Dark/Night", target: nil, action: nil)
     private let revealButton = NSButton(title: "Reveal", target: nil, action: nil)
+    private let deleteButton = NSButton(title: "Delete", target: nil, action: nil)
 
     init() {
         let window = NSWindow(
@@ -69,7 +71,9 @@ final class LibraryWindowController: NSWindowController, NSTableViewDataSource, 
         case "type":
             text = project.type.rawValue.capitalized
         case "status":
-            text = project.supportStatus.label
+            text = project.usesAudioResponsiveOverlay
+                ? "\(project.supportStatus.label) + Audio Responsive"
+                : project.supportStatus.label
         default:
             text = ""
         }
@@ -132,8 +136,11 @@ final class LibraryWindowController: NSWindowController, NSTableViewDataSource, 
         setDarkButton.action = #selector(setDarkClicked)
         revealButton.target = self
         revealButton.action = #selector(revealClicked)
+        deleteButton.target = self
+        deleteButton.action = #selector(deleteClicked)
+        deleteButton.contentTintColor = .systemRed
 
-        let controls = NSStackView(views: [importButton, applyButton, setLightButton, setDarkButton, revealButton])
+        let controls = NSStackView(views: [importButton, applyButton, setLightButton, setDarkButton, revealButton, deleteButton])
         controls.orientation = .horizontal
         controls.alignment = .centerY
         controls.spacing = 8
@@ -200,6 +207,14 @@ final class LibraryWindowController: NSWindowController, NSTableViewDataSource, 
         onRevealRequested?(project)
     }
 
+    @objc
+    private func deleteClicked() {
+        guard let project = selectedProject else {
+            return
+        }
+        onDeleteRequested?(project)
+    }
+
     private var selectedProject: WallpaperProject? {
         let row = tableView.selectedRow
         guard row >= 0, row < projects.count else {
@@ -214,6 +229,7 @@ final class LibraryWindowController: NSWindowController, NSTableViewDataSource, 
         setLightButton.isEnabled = project?.isPlayableNow == true
         setDarkButton.isEnabled = project?.isPlayableNow == true
         revealButton.isEnabled = project != nil
+        deleteButton.isEnabled = project != nil
     }
 }
 

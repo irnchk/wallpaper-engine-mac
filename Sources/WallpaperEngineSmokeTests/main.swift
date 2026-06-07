@@ -9,6 +9,11 @@ struct SmokeTestRunner {
         try scannerSkipsBrokenWorkshopChildren()
         try scannerSkipsBrokenRootsInMultiRootScan()
         try webmIsDetectedButNotRuntimePlayableYet()
+        try webWallpaperIsPlayable()
+        try gifSceneUsesPreviewFallback()
+        try scenePackageUsesPackageInsteadOfTinyIconPreview()
+        try gifScenePackageUsesMatchingPackage()
+        try audioResponsiveWorkshopMetadataIsDetected()
         try interactiveObjectsDecode()
         try directVideoImport()
         try bundledSampleWallpaperIsImportable()
@@ -109,6 +114,141 @@ struct SmokeTestRunner {
             guard case .needsTranscoding = project.supportStatus else {
                 throw SmokeTestError.expectationFailed("Expected .needsTranscoding, got \(project.supportStatus)")
             }
+        }
+    }
+
+    private static func webWallpaperIsPlayable() throws {
+        try withTemporaryRoot { temporaryRoot in
+            let projectDirectory = temporaryRoot.appendingPathComponent("web")
+            try FileManager.default.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
+            try write("<!doctype html><canvas></canvas>", to: projectDirectory.appendingPathComponent("index.html"))
+
+            let json = """
+            {
+              "type": "web",
+              "file": "index.html",
+              "title": "Web Visualizer"
+            }
+            """
+            try write(json, to: projectDirectory.appendingPathComponent("project.json"))
+
+            let project = try WallpaperProject.load(projectJSONURL: projectDirectory.appendingPathComponent("project.json"))
+
+            try expect(project.type == .web, "web type should decode")
+            try expect(project.entryURL?.lastPathComponent == "index.html", "web entry should resolve")
+            try expect(project.isPlayableNow, "local web wallpaper should be playable")
+        }
+    }
+
+    private static func gifSceneUsesPreviewFallback() throws {
+        try withTemporaryRoot { temporaryRoot in
+            let projectDirectory = temporaryRoot.appendingPathComponent("gifscene")
+            try FileManager.default.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
+            try gifHeader(width: 1280, height: 720).write(to: projectDirectory.appendingPathComponent("preview.gif"))
+
+            let json = """
+            {
+              "type": "scene",
+              "file": "gifscene.json",
+              "title": "Before the Road",
+              "preview": "preview.gif",
+              "templateoptions": [
+                {
+                  "type": "replacetexture",
+                  "destination": "materials/background.gif"
+                }
+              ]
+            }
+            """
+            try write(json, to: projectDirectory.appendingPathComponent("project.json"))
+
+            let project = try WallpaperProject.load(projectJSONURL: projectDirectory.appendingPathComponent("project.json"))
+
+            try expect(project.type == .scene, "scene type should decode")
+            try expect(project.entryURL?.lastPathComponent == "preview.gif", "gif scene should use animated preview fallback")
+            try expect(project.isPlayableNow, "gif scene preview fallback should be playable")
+        }
+    }
+
+    private static func scenePackageUsesPackageInsteadOfTinyIconPreview() throws {
+        try withTemporaryRoot { temporaryRoot in
+            let projectDirectory = temporaryRoot.appendingPathComponent("tiny-preview-scene")
+            try FileManager.default.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
+            try Data().write(to: projectDirectory.appendingPathComponent("scene.pkg"))
+            try gifHeader(width: 256, height: 256).write(to: projectDirectory.appendingPathComponent("cyberpunk_gif_icon.gif"))
+
+            let json = """
+            {
+              "type": "scene",
+              "file": "scene.json",
+              "title": "Cyberpunk 2077 - Night City [Ultrawide]",
+              "preview": "cyberpunk_gif_icon.gif"
+            }
+            """
+            try write(json, to: projectDirectory.appendingPathComponent("project.json"))
+
+            let project = try WallpaperProject.load(projectJSONURL: projectDirectory.appendingPathComponent("project.json"))
+
+            try expect(project.entryURL?.lastPathComponent == "scene.pkg", "scene package should be used instead of tiny icon preview")
+            try expect(project.isPlayableNow, "scene package should be applyable even when preview is only an icon")
+        }
+    }
+
+    private static func gifScenePackageUsesMatchingPackage() throws {
+        try withTemporaryRoot { temporaryRoot in
+            let projectDirectory = temporaryRoot.appendingPathComponent("gifscene-package")
+            try FileManager.default.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
+            try Data().write(to: projectDirectory.appendingPathComponent("gifscene.pkg"))
+            try gifHeader(width: 200, height: 200).write(to: projectDirectory.appendingPathComponent("preview.gif"))
+
+            let json = """
+            {
+              "type": "scene",
+              "file": "gifscene.json",
+              "title": "Before the Road",
+              "preview": "preview.gif"
+            }
+            """
+            try write(json, to: projectDirectory.appendingPathComponent("project.json"))
+
+            let project = try WallpaperProject.load(projectJSONURL: projectDirectory.appendingPathComponent("project.json"))
+
+            try expect(project.entryURL?.lastPathComponent == "gifscene.pkg", "scene should use package matching the scene json basename")
+            try expect(project.isPlayableNow, "matching scene package should be applyable")
+        }
+    }
+
+    private static func audioResponsiveWorkshopMetadataIsDetected() throws {
+        try withTemporaryRoot { temporaryRoot in
+            let projectDirectory = temporaryRoot.appendingPathComponent("audio-scene")
+            try FileManager.default.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
+            try gifHeader(width: 1280, height: 720).write(to: projectDirectory.appendingPathComponent("preview.gif"))
+
+            let json = """
+            {
+              "type": "scene",
+              "file": "scene.pkg",
+              "title": "Audio Responsive Spectrum",
+              "description": "Music reactive visualizer overlay for Wallpaper Engine.",
+              "preview": "preview.gif",
+              "tags": ["Music"],
+              "general": {
+                "properties": {
+                  "bassIntensity": {
+                    "type": "slider",
+                    "text": "Bass intensity",
+                    "value": 50
+                  }
+                }
+              }
+            }
+            """
+            try write(json, to: projectDirectory.appendingPathComponent("project.json"))
+
+            let project = try WallpaperProject.load(projectJSONURL: projectDirectory.appendingPathComponent("project.json"))
+
+            try expect(project.isPlayableNow, "audio-responsive scene preview fallback should be playable")
+            try expect(project.usesAudioResponsiveOverlay, "audio-responsive metadata should enable the overlay")
         }
     }
 
@@ -246,6 +386,17 @@ struct SmokeTestRunner {
             throw SmokeTestError.expectationFailed("Could not encode fixture")
         }
         try data.write(to: url)
+    }
+
+    private static func gifHeader(width: Int, height: Int) -> Data {
+        Data([
+            0x47, 0x49, 0x46, 0x38, 0x39, 0x61,
+            UInt8(width & 0xFF),
+            UInt8((width >> 8) & 0xFF),
+            UInt8(height & 0xFF),
+            UInt8((height >> 8) & 0xFF),
+            0x00, 0x00, 0x00
+        ])
     }
 
     private static func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {

@@ -20,6 +20,7 @@ final class RenderCoordinator {
     var onStatusChanged: (() -> Void)?
 
     private let preferences: AppPreferences
+    private let audioLevelMonitor = AudioLevelMonitor()
     private var hosts: [CGDirectDisplayID: DesktopWallpaperHost] = [:]
     private var activeProject: WallpaperProject?
     private var globalPauseReasons: Set<PauseReason> = []
@@ -33,13 +34,16 @@ final class RenderCoordinator {
             return "No wallpaper applied"
         }
 
+        let audioSuffix = activeProject.usesAudioResponsiveOverlay || preferences.audioResponsiveEnabled
+            ? " + Audio Responsive"
+            : ""
         let reasons = effectivePauseReasons
         if reasons.isEmpty {
-            return "Playing: \(activeProject.title)"
+            return "Playing: \(activeProject.title)\(audioSuffix)"
         }
 
         let reasonText = reasons.map(\.label).sorted().joined(separator: ", ")
-        return "Paused: \(reasonText)"
+        return "Paused: \(reasonText)\(audioSuffix)"
     }
 
     private var effectivePauseReasons: Set<PauseReason> {
@@ -51,6 +55,16 @@ final class RenderCoordinator {
     }
 
     func start() {
+        audioLevelMonitor.onLevelChanged = { [weak self] level in
+            Task { @MainActor in
+                self?.updateAudioResponsiveLevel(level)
+            }
+        }
+        audioLevelMonitor.onError = { error in
+            Task { @MainActor in
+                NSApp.presentError(error)
+            }
+        }
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(screenParametersChanged),
@@ -58,6 +72,7 @@ final class RenderCoordinator {
             object: nil
         )
         rebuildScreens()
+        updateAudioResponsive()
     }
 
     func apply(_ project: WallpaperProject) throws {
@@ -71,6 +86,7 @@ final class RenderCoordinator {
         activeProject = project
         preferences.selectedWallpaperRootPath = project.rootURL.path
         rebuildScreens()
+        updateAudioResponsive()
         updatePlayback()
         onStatusChanged?()
     }
@@ -79,6 +95,7 @@ final class RenderCoordinator {
         activeProject = nil
         preferences.selectedWallpaperRootPath = nil
         teardownHosts()
+        audioLevelMonitor.stop()
         onStatusChanged?()
     }
 
@@ -106,6 +123,19 @@ final class RenderCoordinator {
         }
     }
 
+    func updateAudioResponsive() {
+        for host in hosts.values {
+            host.updateAudioResponsiveEnabled()
+        }
+
+        if hosts.values.contains(where: \.isAudioResponsiveEnabled) {
+            audioLevelMonitor.start()
+        } else {
+            audioLevelMonitor.stop()
+            updateAudioResponsiveLevel(AudioResponsiveLevel(value: 0))
+        }
+    }
+
     func resetInteractiveObjectFramesForActiveProject() {
         guard let activeProject else {
             return
@@ -125,6 +155,7 @@ final class RenderCoordinator {
     private func rebuildScreens() {
         guard let activeProject else {
             teardownHosts()
+            audioLevelMonitor.stop()
             return
         }
 
@@ -141,7 +172,7 @@ final class RenderCoordinator {
 
             if let host = hosts[displayID] {
                 host.move(to: screen)
-                if host.projectRootPath != activeProject.rootURL.path {
+                if host.needsProjectReplacement(activeProject) {
                     do {
                         try host.replaceProject(
                             activeProject,
@@ -153,6 +184,7 @@ final class RenderCoordinator {
                     }
                 } else {
                     host.renderer?.setReleaseResourcesWhilePaused(preferences.releaseDecoderOnLongPause)
+                    host.updateAudioResponsiveEnabled()
                 }
             } else {
                 do {
@@ -164,6 +196,9 @@ final class RenderCoordinator {
                         releaseResourcesWhilePaused: preferences.releaseDecoderOnLongPause,
                         onOcclusionChanged: { [weak self] in
                             self?.updatePlayback()
+                            self?.onStatusChanged?()
+                        },
+                        onInteractionEditingExited: { [weak self] in
                             self?.onStatusChanged?()
                         }
                     )
@@ -189,6 +224,12 @@ final class RenderCoordinator {
         }
         hosts.removeAll()
     }
+
+    private func updateAudioResponsiveLevel(_ level: AudioResponsiveLevel) {
+        for host in hosts.values {
+            host.renderer?.updateAudioResponsiveLevel(level)
+        }
+    }
 }
 
 @MainActor
@@ -196,7 +237,9 @@ private final class DesktopWallpaperHost {
     let window: DesktopWallpaperWindow
     var renderer: WallpaperRenderer?
     private let onOcclusionChanged: () -> Void
+    private let onInteractionEditingExited: () -> Void
     private let preferences: AppPreferences
+    private var project: WallpaperProject
     private(set) var projectRootPath: String
     private var projectHasInteractiveObjects: Bool
 
@@ -210,7 +253,8 @@ private final class DesktopWallpaperHost {
         preferences: AppPreferences,
         muted: Bool,
         releaseResourcesWhilePaused: Bool,
-        onOcclusionChanged: @escaping () -> Void
+        onOcclusionChanged: @escaping () -> Void,
+        onInteractionEditingExited: @escaping () -> Void
     ) throws {
         guard let entryURL = project.entryURL else {
             throw RenderCoordinator.CoordinatorError.missingEntry(project)
@@ -218,23 +262,32 @@ private final class DesktopWallpaperHost {
 
         self.window = DesktopWallpaperWindow(screen: screen)
         self.onOcclusionChanged = onOcclusionChanged
+        self.onInteractionEditingExited = onInteractionEditingExited
         self.preferences = preferences
+        self.project = project
         self.projectRootPath = project.rootURL.path
         self.projectHasInteractiveObjects = !project.interactiveObjects.isEmpty
-        self.renderer = VideoWallpaperRenderer(
+        self.renderer = Self.makeRenderer(
             project: project,
             fileURL: entryURL,
             muted: muted,
             releaseResourcesWhilePaused: releaseResourcesWhilePaused,
             interactiveObjectsEnabled: objectInteractionEnabled(for: project),
+            audioResponsiveEnabled: effectiveAudioResponsiveEnabled(for: project),
             frameProvider: { [preferences, projectRootPath = project.rootURL.path] objectID in
                 preferences.interactiveObjectFrameOverride(projectRootPath: projectRootPath, objectID: objectID)
             },
             onFrameChanged: { [preferences, projectRootPath = project.rootURL.path] objectID, frame in
                 preferences.setInteractiveObjectFrameOverride(frame, projectRootPath: projectRootPath, objectID: objectID)
+            },
+            onExitEditModeRequested: { [weak self] in
+                self?.exitObjectInteractionEditing()
             }
         )
 
+        window.onCancelObjectInteraction = { [weak self] in
+            self?.exitObjectInteractionEditing()
+        }
         installRendererView()
         NotificationCenter.default.addObserver(
             self,
@@ -251,6 +304,10 @@ private final class DesktopWallpaperHost {
         window.move(to: screen)
     }
 
+    func needsProjectReplacement(_ nextProject: WallpaperProject) -> Bool {
+        project != nextProject
+    }
+
     func replaceProject(
         _ project: WallpaperProject,
         muted: Bool,
@@ -261,19 +318,24 @@ private final class DesktopWallpaperHost {
         }
 
         renderer?.teardown()
-        renderer = VideoWallpaperRenderer(
+        renderer = Self.makeRenderer(
             project: project,
             fileURL: entryURL,
             muted: muted,
             releaseResourcesWhilePaused: releaseResourcesWhilePaused,
             interactiveObjectsEnabled: objectInteractionEnabled(for: project),
+            audioResponsiveEnabled: effectiveAudioResponsiveEnabled(for: project),
             frameProvider: { [preferences, projectRootPath = project.rootURL.path] objectID in
                 preferences.interactiveObjectFrameOverride(projectRootPath: projectRootPath, objectID: objectID)
             },
             onFrameChanged: { [preferences, projectRootPath = project.rootURL.path] objectID, frame in
                 preferences.setInteractiveObjectFrameOverride(frame, projectRootPath: projectRootPath, objectID: objectID)
+            },
+            onExitEditModeRequested: { [weak self] in
+                self?.exitObjectInteractionEditing()
             }
         )
+        self.project = project
         projectRootPath = project.rootURL.path
         projectHasInteractiveObjects = !project.interactiveObjects.isEmpty
         installRendererView()
@@ -303,6 +365,14 @@ private final class DesktopWallpaperHost {
         renderer?.setInteractiveObjectsEnabled(enabled)
     }
 
+    func updateAudioResponsiveEnabled() {
+        renderer?.setAudioResponsiveEnabled(isAudioResponsiveEnabled)
+    }
+
+    var isAudioResponsiveEnabled: Bool {
+        effectiveAudioResponsiveEnabled(for: project)
+    }
+
     @objc
     private func occlusionChanged() {
         onOcclusionChanged()
@@ -327,6 +397,79 @@ private final class DesktopWallpaperHost {
 
     private func objectInteractionEnabled(for project: WallpaperProject) -> Bool {
         preferences.interactiveObjectsEnabled && !project.interactiveObjects.isEmpty
+    }
+
+    private func effectiveAudioResponsiveEnabled(for project: WallpaperProject) -> Bool {
+        preferences.audioResponsiveEnabled || project.usesAudioResponsiveOverlay
+    }
+
+    private func exitObjectInteractionEditing() {
+        guard preferences.interactiveObjectsEnabled else {
+            return
+        }
+
+        preferences.interactiveObjectsEnabled = false
+        updateObjectInteractionEnabled()
+        onInteractionEditingExited()
+    }
+
+    private static func makeRenderer(
+        project: WallpaperProject,
+        fileURL: URL,
+        muted: Bool,
+        releaseResourcesWhilePaused: Bool,
+        interactiveObjectsEnabled: Bool,
+        audioResponsiveEnabled: Bool,
+        frameProvider: @escaping (String) -> WallpaperInteractiveFrame?,
+        onFrameChanged: @escaping (String, WallpaperInteractiveFrame) -> Void,
+        onExitEditModeRequested: @escaping () -> Void
+    ) -> WallpaperRenderer {
+        let packagedScene = ScenePackageSupport.renderableScene(for: project)
+        let renderFileURL = packagedScene?.backgroundImageURL ?? fileURL
+        let audioResponsiveStyle = packagedScene?.audioStyle ?? .systemDefault
+
+        if SupportedWebFile.isKnownWebEntryFile(renderFileURL) {
+            return WebWallpaperRenderer(
+                project: project,
+                fileURL: renderFileURL,
+                interactiveObjectsEnabled: interactiveObjectsEnabled,
+                audioResponsiveEnabled: audioResponsiveEnabled,
+                audioResponsiveStyle: audioResponsiveStyle,
+                frameProvider: frameProvider,
+                onFrameChanged: onFrameChanged,
+                onExitEditModeRequested: onExitEditModeRequested
+            )
+        }
+
+        if SupportedStillOrAnimatedImageFile.isKnownImageFile(renderFileURL) {
+            return ImageWallpaperRenderer(
+                project: project,
+                fileURL: renderFileURL,
+                interactiveObjectsEnabled: interactiveObjectsEnabled,
+                audioResponsiveEnabled: audioResponsiveEnabled,
+                audioResponsiveStyle: audioResponsiveStyle,
+                frameProvider: frameProvider,
+                onFrameChanged: onFrameChanged,
+                onExitEditModeRequested: onExitEditModeRequested
+            )
+        }
+
+        if SupportedScenePackageFile.isKnownScenePackageFile(renderFileURL) {
+            return ScenePackagePlaceholderRenderer(project: project)
+        }
+
+        return VideoWallpaperRenderer(
+            project: project,
+            fileURL: renderFileURL,
+            muted: muted,
+            releaseResourcesWhilePaused: releaseResourcesWhilePaused,
+            interactiveObjectsEnabled: interactiveObjectsEnabled,
+            audioResponsiveEnabled: audioResponsiveEnabled,
+            audioResponsiveStyle: audioResponsiveStyle,
+            frameProvider: frameProvider,
+            onFrameChanged: onFrameChanged,
+            onExitEditModeRequested: onExitEditModeRequested
+        )
     }
 }
 
