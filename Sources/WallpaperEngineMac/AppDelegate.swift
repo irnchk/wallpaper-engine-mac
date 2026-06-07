@@ -51,7 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "photo.on.rectangle.angled", accessibilityDescription: "WallpaperEngineMac")
+            button.image = NSImage(systemSymbolName: "photo.on.rectangle.angled", accessibilityDescription: "Wallpaper Engine Mac")
             button.imagePosition = .imageLeading
             button.title = "WE"
         }
@@ -96,7 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func rebuildMenu() {
         let menu = NSMenu()
 
-        let titleItem = NSMenuItem(title: "WallpaperEngineMac", action: nil, keyEquivalent: "")
+        let titleItem = NSMenuItem(title: "Wallpaper Engine Mac", action: nil, keyEquivalent: "")
         titleItem.isEnabled = false
         menu.addItem(titleItem)
 
@@ -1061,8 +1061,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let mainMenu = NSMenu()
 
         let appMenuItem = NSMenuItem()
-        let appMenu = NSMenu(title: "WallpaperEngineMac")
-        appMenu.addItem(NSMenuItem(title: "Quit WallpaperEngineMac", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        let appMenu = NSMenu(title: "Wallpaper Engine Mac")
+        appMenu.addItem(NSMenuItem(title: "Quit Wallpaper Engine Mac", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)
 

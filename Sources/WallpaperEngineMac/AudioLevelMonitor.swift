@@ -261,9 +261,9 @@ private enum AudioLevelMonitorError: LocalizedError {
             return """
             macOS is still denying Screen & System Audio Recording for this app.
 
-            Grant permission to WallpaperEngineMac in System Settings > Privacy & Security > Screen & System Audio Recording, then quit and reopen the app.
+            Grant permission to Wallpaper Engine Mac in System Settings > Privacy & Security > Screen & System Audio Recording, then quit and reopen the app.
 
-            If it is already enabled, remove WallpaperEngineMac from that list, reopen this exact app bundle, and grant it again. macOS can keep a stale permission entry when a locally built app is rebuilt.
+            If it is already enabled, remove Wallpaper Engine Mac from that list, reopen this exact app bundle, and grant it again. macOS can keep a stale permission entry when a locally built app is rebuilt.
 
             \(appIdentity)
             """
@@ -271,7 +271,7 @@ private enum AudioLevelMonitorError: LocalizedError {
             return """
             ScreenCaptureKit started but system audio capture failed.
 
-            Check System Settings > Privacy & Security > Screen & System Audio Recording for this exact app, then quit and reopen WallpaperEngineMac.
+            Check System Settings > Privacy & Security > Screen & System Audio Recording for this exact app, then quit and reopen Wallpaper Engine Mac.
 
             \(appIdentity)
 

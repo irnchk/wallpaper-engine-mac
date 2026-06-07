@@ -15,7 +15,7 @@ final class DesktopWallpaperWindow: NSWindow {
             defer: false
         )
 
-        title = "WallpaperEngineMac Desktop Wallpaper"
+        title = "Wallpaper Engine Mac Desktop Wallpaper"
         isReleasedWhenClosed = false
         backgroundColor = .black
         isOpaque = true

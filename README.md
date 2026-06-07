@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="Resources/AppIcon.png" alt="WallpaperEngineMac icon" width="128" height="128" />
+<img src="Resources/AppIcon.png" alt="Wallpaper Engine Mac icon" width="128" height="128" />
 
-# WallpaperEngineMac
+# Wallpaper Engine Mac
 
 **Native macOS menu bar app for playing locally owned Wallpaper Engine-style video wallpapers.**
 
@@ -151,6 +151,13 @@ swift run WallpaperEngineMac
 ```
 
 The app appears in the menu bar. Use **`Import Folder or Video`** to add local assets, then apply a supported video wallpaper from the menu or the library window.
+
+To build the Finder app bundle:
+
+```sh
+./Scripts/build-app.sh
+open ".build/app/Wallpaper Engine Mac.app"
+```
 
 ## 🧪 Test
 

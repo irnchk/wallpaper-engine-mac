@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="Resources/AppIcon.png" alt="WallpaperEngineMac 아이콘" width="128" height="128" />
+<img src="Resources/AppIcon.png" alt="Wallpaper Engine Mac 아이콘" width="128" height="128" />
 
-# WallpaperEngineMac
+# Wallpaper Engine Mac
 
 **내가 가진 Wallpaper Engine 스타일 동영상 배경화면을 macOS에서 재생하는 메뉴바 앱.**
 
@@ -151,6 +151,13 @@ swift run WallpaperEngineMac
 ```
 
 실행하면 메뉴바에 앱이 뜹니다. **`Import Folder or Video`**로 로컬 파일을 추가한 다음, 메뉴나 라이브러리 창에서 원하는 영상 배경화면을 적용하세요.
+
+Finder에서 열 수 있는 앱 번들을 만들려면:
+
+```sh
+./Scripts/build-app.sh
+open ".build/app/Wallpaper Engine Mac.app"
+```
 
 ## 🧪 테스트
 

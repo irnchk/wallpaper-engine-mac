@@ -3,7 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/app"
-APP_DIR="$BUILD_DIR/WallpaperEngineMac.app"
+APP_NAME="Wallpaper Engine Mac"
+APP_DIR="$BUILD_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
@@ -11,6 +12,7 @@ RESOURCES_DIR="$CONTENTS_DIR/Resources"
 mkdir -p "$MACOS_DIR"
 
 swift build --package-path "$ROOT_DIR" -c release
+rm -rf "$BUILD_DIR/WallpaperEngineMac.app"
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
@@ -28,7 +30,9 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <key>CFBundleIdentifier</key>
   <string>local.wallpaper-engine-mac</string>
   <key>CFBundleName</key>
-  <string>WallpaperEngineMac</string>
+  <string>Wallpaper Engine Mac</string>
+  <key>CFBundleDisplayName</key>
+  <string>Wallpaper Engine Mac</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -40,11 +44,11 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
   <key>LSUIElement</key>
   <true/>
   <key>NSScreenCaptureUsageDescription</key>
-  <string>WallpaperEngineMac captures a tiny desktop stream so audio responsive wallpapers can react to system audio.</string>
+  <string>Wallpaper Engine Mac captures a tiny desktop stream so audio responsive wallpapers can react to system audio.</string>
   <key>NSAudioCaptureUsageDescription</key>
-  <string>WallpaperEngineMac captures system audio levels to animate audio responsive wallpapers.</string>
+  <string>Wallpaper Engine Mac captures system audio levels to animate audio responsive wallpapers.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>WallpaperEngineMac does not record the microphone, but macOS may show this permission alongside system audio capture.</string>
+  <string>Wallpaper Engine Mac does not record the microphone, but macOS may show this permission alongside system audio capture.</string>
 </dict>
 </plist>
 PLIST
