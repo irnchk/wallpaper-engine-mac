@@ -31,6 +31,8 @@
 - **GIF scene fallback playback** — plays Workshop GIF template scenes that provide an animated `preview.gif`.
 - **Automatic Light/Dark wallpapers** — assign separate Light/Day and Dark/Night wallpapers and switch by macOS appearance or a simple day/night schedule.
 - **Interactive image objects** — add album covers or custom images on top of a wallpaper, then enable edit mode to click and drag them into place.
+- **Live2D / Cubism web objects** — drop in a licensed local Live2D web bundle and render it as an interactive, transparent WebKit object on top of any wallpaper, sandboxed through a local-only scheme with network access blocked.
+- **Steam Workshop integration** — open Workshop pages and items, import an already-downloaded `steamapps/workshop/content/431960` folder, or fetch with a SteamCMD login for an account that owns Wallpaper Engine — without bypassing Steam or redistributing files.
 - **Audio responsive Workshop support** — detects Workshop metadata such as audio reactive / visualizer / spectrum and automatically enables the reactive overlay; local `web` wallpapers are rendered through WebKit.
 - **Battery-first power management** — pauses when the screen locks, displays sleep, Low Power Mode is on, on battery (optional), the user pauses, or the wallpaper window is occluded.
 - **Frees decoder resources** after a long pause and recreates playback on resume.
@@ -72,7 +74,7 @@ Use **`Interactive Objects`** from the menu bar app to place media objects over 
 
 - **`Add Image Object to Current Wallpaper...`** copies the selected image into the active project and adds it to `project.json`.
 - **`Add Video Object to Current Wallpaper...`** adds a muted looping `.mp4`, `.m4v`, or `.mov` object above the wallpaper.
-- **`Add Live2D Web Object...`** copies the folder containing a local Live2D/Cubism Web HTML entry file and renders it as an interactive WebKit object. The copied bundle is loaded through a local-only app scheme, network resources are blocked, and the page/canvas background is forced transparent. The Live2D runtime is not bundled; use local runtime files and assets you are licensed to run.
+- **`Add Live2D Web Object...`** copies a local Live2D / Cubism web bundle and renders it as an interactive, transparent WebKit object (see the **Live2D web objects** section below).
 - **`Edit / Interact With Objects`** raises the wallpaper into an edit layer so objects can be clicked and dragged. Press `Esc` or click outside the objects to return the wallpaper behind desktop icons.
 - **`Remove Object`** removes an object from `project.json` and deletes the app-copied asset when it lives under `InteractiveObjects/`.
 
@@ -101,6 +103,20 @@ Projects can also define objects directly:
 ```
 
 Frame values are normalized to the screen: `x` and `y` start at the top-left, and `width` / `height` are fractions of the display.
+
+---
+
+## 🎎 Live2D web objects
+
+Bring animated **Live2D / Cubism** characters onto your desktop as interactive objects, layered over any video wallpaper.
+
+- Open **`Interactive Objects` → `Add Live2D Web Object...`** and choose the folder that holds your Live2D web entry file (an `index.html` with the Cubism runtime and model assets).
+- The bundle is copied into the active project and rendered through WebKit with a **transparent page and canvas background**, so only the character is visible over the wallpaper.
+- It loads through an **app-local-only URL scheme** with **all network resources blocked**, keeping the object fully offline and sandboxed.
+- Enter **`Edit / Interact With Objects`** to drag the character into place; press `Esc` or click outside it to send the wallpaper back behind your desktop icons.
+- Combine it with **`Audio Responsive`** to layer the character over an audio-reactive scene.
+
+> ⚠️ The Live2D / Cubism runtime is **not bundled** with the app. Supply your own local runtime files and model assets that you are licensed to use.
 
 ---
 
