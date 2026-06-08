@@ -157,6 +157,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             action: #selector(toggleAudioResponsive),
             state: preferences.audioResponsiveEnabled || currentProject?.usesAudioResponsiveOverlay == true
         ))
+        let lockScreenItem = NSMenuItem(
+            title: "Set Current Snapshot as Lock Screen",
+            action: #selector(setCurrentSnapshotAsLockScreen),
+            keyEquivalent: "",
+            target: self
+        )
+        lockScreenItem.isEnabled = currentProject?.isPlayableNow == true
+        menu.addItem(lockScreenItem)
         menu.addItem(NSMenuItem(
             title: "Open Screen & System Audio Settings",
             action: #selector(openScreenAndSystemAudioSettings),
@@ -522,6 +530,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc
+    private func setCurrentSnapshotAsLockScreen() {
+        guard let project = currentProject else {
+            return
+        }
+        installLockScreenSnapshot(for: project, showSuccess: true)
+    }
+
+    @objc
     private func openScreenAndSystemAudioSettings() {
         let urls = [
             URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"),
@@ -806,6 +822,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             updatePauseReasons()
             rebuildMenu()
+            if resetUserPause {
+                promptForLockScreenSnapshotIfNeeded(project)
+            }
         } catch {
             presentError(error)
         }
@@ -948,6 +967,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "Delete")
         alert.addButton(withTitle: "Cancel")
         return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    private func promptForLockScreenSnapshotIfNeeded(_ project: WallpaperProject) {
+        NSApp.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.messageText = "Set Lock Screen Wallpaper?"
+        alert.informativeText = """
+        Wallpaper Engine Mac can extract a still image from \(project.title) and set it as the macOS desktop and lock screen wallpaper.
+
+        The live wallpaper will keep playing in the app. macOS may ask for an administrator password to update the lock screen cache.
+        """
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Set Lock Screen")
+        alert.addButton(withTitle: "Not Now")
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return
+        }
+
+        installLockScreenSnapshot(for: project, showSuccess: true)
+    }
+
+    private func installLockScreenSnapshot(for project: WallpaperProject, showSuccess: Bool) {
+        do {
+            let result = try LockScreenSnapshotInstaller.installSnapshot(for: project)
+            guard showSuccess else {
+                return
+            }
+
+            let cachePath = result.lockScreenCacheURL?.path ?? "macOS desktop wallpaper only"
+            let desktopStatus = result.didSetDesktopWallpaper ? "Desktop wallpaper was also updated." : "Desktop wallpaper update was skipped by macOS."
+            presentMessage(
+                title: "Lock Screen Snapshot Set",
+                message: """
+                Snapshot:
+                \(result.snapshotURL.path)
+
+                Lock screen cache:
+                \(cachePath)
+
+                \(desktopStatus)
+                """
+            )
+        } catch {
+            presentError(error)
+        }
     }
 
     private func presentError(_ error: Error) {

@@ -30,6 +30,7 @@
 - **Plays behind your desktop icons** on every connected display via `AVQueuePlayer` + `AVPlayerLooper` (VideoToolbox hardware decoding).
 - **GIF scene fallback playback** — plays Workshop GIF template scenes that provide an animated `preview.gif`.
 - **Automatic Light/Dark wallpapers** — assign separate Light/Day and Dark/Night wallpapers and switch by macOS appearance or a simple day/night schedule.
+- **Lock Screen snapshot sync** — when you apply a wallpaper, optionally extract a still frame and set it as the macOS desktop / lock screen wallpaper.
 - **Interactive image objects** — add album covers or custom images on top of a wallpaper, then enable edit mode to click and drag them into place.
 - **Live2D / Cubism web objects** — drop in a licensed local Live2D web bundle and render it as an interactive, transparent WebKit object on top of any wallpaper, sandboxed through a local-only scheme with network access blocked.
 - **Steam Workshop integration** — open Workshop pages and items, import an already-downloaded `steamapps/workshop/content/431960` folder, or fetch with a SteamCMD login for an account that owns Wallpaper Engine — without bypassing Steam or redistributing files.
@@ -117,6 +118,14 @@ Bring animated **Live2D / Cubism** characters onto your desktop as interactive o
 - Combine it with **`Audio Responsive`** to layer the character over an audio-reactive scene.
 
 > ⚠️ The Live2D / Cubism runtime is **not bundled** with the app. Supply your own local runtime files and model assets that you are licensed to use.
+
+---
+
+## 🔒 Lock Screen snapshots
+
+macOS does not let normal apps keep a live wallpaper window visible on the Lock Screen. When you apply a wallpaper manually, Wallpaper Engine Mac asks whether to set a matching static Lock Screen image instead. If accepted, it extracts a PNG snapshot from the wallpaper's video, image, scene fallback, or preview, sets that image as the macOS desktop wallpaper underneath the live layer, and writes the Lock Screen cache. macOS may ask for an administrator password for the cache update.
+
+You can also run the same action later from **`Set Current Snapshot as Lock Screen`** in the menu bar app.
 
 ---
 
